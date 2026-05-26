@@ -1,4 +1,3 @@
-var SENSITIVE_LABELS = StiffEyesPatterns.SENSITIVE_LABELS;
 var SCAN_TABS = StiffEyesPatterns.SCAN_TABS;
 
 var currentTabId = null;
@@ -8,6 +7,10 @@ var activeScanTabId = 'domains';
 var scanUiBuilt = false;
 
 const $ = (id) => document.getElementById(id);
+
+function springStorageKey(tabId) {
+  return 'springScan_' + tabId;
+}
 
 function statusClass(code) {
   if (code >= 200 && code < 300) return 'status-2xx';
@@ -51,45 +54,14 @@ function snowEntrySource(entry) {
   return '';
 }
 
-function getByPath(obj, path) {
-  if (!obj || !path) return [];
-  return path.split('.').reduce(function (acc, key) {
-    return acc && acc[key] != null ? acc[key] : null;
-  }, obj) || [];
-}
-
 function collectTabItems(data, tab) {
   if (!data || data.blacklisted) return [];
 
-  if (tab.kind === 'snow') {
-    return (data[tab.field] || []).map(function (entry) {
-      var val = snowEntryValue(entry);
-      var src = snowEntrySource(entry);
-      return { text: val, title: src ? '来源: ' + src : val };
-    });
-  }
-
-  if (tab.kind === 'path') {
-    return getByPath(data, tab.path).slice();
-  }
-
-  if (tab.kind === 'asset') {
-    return (data.assets?.[tab.field] || []).slice();
-  }
-
-  if (tab.kind === 'sensitive') {
-    var out = [];
-    (tab.keys || []).forEach(function (key) {
-      var arr = data.sensitive?.[key] || [];
-      var label = SENSITIVE_LABELS[key] || key;
-      arr.forEach(function (v) {
-        out.push({ text: `[${label}] ${v}`, title: v });
-      });
-    });
-    return out;
-  }
-
-  return [];
+  return (data[tab.field] || []).map(function (entry) {
+    var val = snowEntryValue(entry);
+    var src = snowEntrySource(entry);
+    return { text: val, title: src ? '来源: ' + src : val };
+  });
 }
 
 function countTabItems(data, tab) {
@@ -98,25 +70,7 @@ function countTabItems(data, tab) {
 
 function copyTabItems(data, tab) {
   if (!data) return '';
-  if (tab.kind === 'snow') {
-    return (data[tab.field] || []).map(snowEntryValue).filter(Boolean).join('\n');
-  }
-  if (tab.kind === 'path') {
-    return getByPath(data, tab.path).join('\n');
-  }
-  if (tab.kind === 'asset') {
-    return (data.assets?.[tab.field] || []).join('\n');
-  }
-  if (tab.kind === 'sensitive') {
-    var lines = [];
-    (tab.keys || []).forEach(function (key) {
-      (data.sensitive?.[key] || []).forEach(function (v) {
-        lines.push(v);
-      });
-    });
-    return lines.join('\n');
-  }
-  return '';
+  return (data[tab.field] || []).map(snowEntryValue).filter(Boolean).join('\n');
 }
 
 async function copyTabUrls(tab) {
@@ -124,6 +78,8 @@ async function copyTabUrls(tab) {
   const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
   const pageTab = tabs[0];
   if (!pageTab?.url) return;
+  const stored = await chrome.storage.local.get(['base_path']);
+  const configuredBase = (stored.base_path || '').trim();
   let baseUrl;
   let currentUrl;
   try {
@@ -135,7 +91,25 @@ async function copyTabUrls(tab) {
   const items = currentScan[tab.field] || [];
   const lines = items.map(function (entry) {
     const path = snowEntryValue(entry);
-    if (tab.copyUrl === 'absolute') return baseUrl + path;
+    if (tab.copyUrl === 'absolute') {
+      if (path.startsWith('http://') || path.startsWith('https://')) return path;
+      return baseUrl + (path.startsWith('/') ? path : '/' + path);
+    }
+    if (tab.copyUrl === 'relative' && configuredBase) {
+      const norm = configuredBase.startsWith('/')
+        ? configuredBase
+        : '/' + configuredBase;
+      const joined =
+        baseUrl +
+        norm.replace(/\/$/, '') +
+        '/' +
+        String(path).replace(/^\//, '');
+      try {
+        return new URL(joined).href;
+      } catch {
+        return joined;
+      }
+    }
     try {
       return new URL(path, currentUrl.href).href;
     } catch {
@@ -269,7 +243,7 @@ function renderScan(data) {
     var items = collectTabItems(currentScan, tab);
     var emptyText = currentScan.scanning
       ? '扫描中，请稍候…'
-      : tab.emptyText || (tab.kind === 'sensitive' ? '未发现匹配项' : '暂无数据');
+      : tab.emptyText || '暂无数据';
     renderList($(`list-${tab.id}`), items, emptyText);
     var badge = document.querySelector(`[data-count-for="${tab.id}"]`);
     if (badge) badge.textContent = String(items.length);
@@ -333,9 +307,15 @@ async function loadResults() {
   if (res?.springState) {
     if (res.springState.scanning) {
       applySpringProgress(res.springState);
+    } else if (res.springState.cancelled) {
+      onSpringCancelled(res.springState, res.springResults);
     } else if (res.springState.error) {
       failSpringScan(res.springState.error);
+    } else {
+      setSpringScanningUi(false);
     }
+  } else {
+    setSpringScanningUi(false);
   }
 }
 
@@ -447,13 +427,26 @@ function applySpringProgress(st) {
   } else {
     $('springProgressText').textContent = `${pct}%`;
   }
+  if (st.scanning) {
+    setSpringScanningUi(true);
+  }
+}
+
+function setSpringScanningUi(scanning) {
+  const startBtn = $('btnSpringScan');
+  const cancelBtn = $('btnSpringCancel');
+  if (startBtn) startBtn.disabled = !!scanning;
+  if (cancelBtn) {
+    cancelBtn.disabled = !scanning;
+    cancelBtn.classList.toggle('hidden', !scanning);
+  }
 }
 
 var springScanFinishing = false;
 
 function failSpringScan(message) {
   springScanFinishing = false;
-  $('btnSpringScan').disabled = false;
+  setSpringScanningUi(false);
   $('springProgressText').textContent = message || '扫描失败';
   renderList($('listSpring'), [], message || '扫描失败');
 }
@@ -463,8 +456,26 @@ function finishSpringScan(resultsText) {
   springScanFinishing = true;
   $('springProgress').style.width = '100%';
   $('springProgressText').textContent = '100%';
-  $('btnSpringScan').disabled = false;
+  setSpringScanningUi(false);
   renderSpringResults(resultsText);
+}
+
+function onSpringCancelled(st, resultsText) {
+  springScanFinishing = false;
+  setSpringScanningUi(false);
+  const pct = st && st.progress != null ? st.progress : 0;
+  $('springProgress').style.width = `${pct}%`;
+  if (st && st.total) {
+    $('springProgressText').textContent = `已中止 ${pct}% (${st.completed || 0}/${st.total})`;
+  } else {
+    $('springProgressText').textContent = '已中止';
+  }
+  const text = resultsText || (st && st.results) || '';
+  if (text.trim()) {
+    renderSpringResults(text);
+  } else {
+    renderList($('listSpring'), [], '扫描已中止，无 2xx/3xx 命中');
+  }
 }
 
 function isSpringForCurrentTab(msg) {
@@ -481,13 +492,19 @@ $('btnSpringScan').addEventListener('click', async () => {
   }
 
   springScanFinishing = false;
-  $('btnSpringScan').disabled = true;
+  setSpringScanningUi(true);
   $('springProgress').style.width = '0%';
   $('springProgressText').textContent = '0%';
   renderList($('listSpring'), [], '扫描中…');
 
   chrome.storage.local.set({
-    springScanState: { progress: 0, completed: 0, total: 0, scanning: true, tabId: tab.id }
+    [springStorageKey(tab.id)]: {
+      progress: 0,
+      completed: 0,
+      total: 0,
+      scanning: true,
+      tabId: tab.id
+    }
   });
 
   const ensureDirs = () =>
@@ -520,6 +537,32 @@ $('btnSpringScan').addEventListener('click', async () => {
   );
 });
 
+$('btnSpringCancel')?.addEventListener('click', async () => {
+  const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+  const tab = tabs[0];
+  if (!tab?.id) return;
+
+  $('btnSpringCancel').disabled = true;
+  $('springProgressText').textContent = '正在中止…';
+
+  chrome.runtime.sendMessage(
+    {
+      type: 'SPRING_SCAN_CANCEL',
+      tabId: tab.id
+    },
+    (resp) => {
+      if (chrome.runtime.lastError) {
+        failSpringScan('中止失败');
+        return;
+      }
+      if (!resp || !resp.ok) {
+        setSpringScanningUi(false);
+        $('springProgressText').textContent = '当前无进行中的扫描';
+      }
+    }
+  );
+});
+
 // Spring 路径配置已并入总设置页（pages/settings.html）
 
 chrome.runtime.onMessage.addListener((msg) => {
@@ -528,10 +571,18 @@ chrome.runtime.onMessage.addListener((msg) => {
     return;
   }
   if (msg.action === 'updateProgress' && isSpringForCurrentTab(msg)) {
-    applySpringProgress(msg);
+    applySpringProgress({
+      progress: msg.progress,
+      completed: msg.completed,
+      total: msg.total,
+      scanning: true
+    });
   }
   if (msg.action === 'updateResults' && msg.results && isSpringForCurrentTab(msg)) {
     finishSpringScan(msg.results);
+  }
+  if (msg.action === 'springScanCancelled' && isSpringForCurrentTab(msg)) {
+    onSpringCancelled(msg, msg.results);
   }
   if (msg.action === 'springScanError' && msg.error && isSpringForCurrentTab(msg)) {
     failSpringScan(msg.error);
@@ -539,12 +590,17 @@ chrome.runtime.onMessage.addListener((msg) => {
 });
 
 chrome.storage.onChanged.addListener((changes, area) => {
-  if (area !== 'local') return;
-  if (changes.springScanState?.newValue) {
-    const st = changes.springScanState.newValue;
+  if (area !== 'local' || !currentTabId) return;
+  const springChange = changes[springStorageKey(currentTabId)];
+  if (springChange?.newValue) {
+    const st = springChange.newValue;
     if (!isSpringForCurrentTab(st)) return;
     if (st.error && !st.scanning) {
       failSpringScan(st.error);
+      return;
+    }
+    if (st.cancelled && !st.scanning) {
+      onSpringCancelled(st, st.results);
       return;
     }
     if (st.scanning) {
@@ -565,6 +621,14 @@ document.querySelectorAll('a[href*="settings.html"]').forEach((a) => {
   a.href = chrome.runtime.getURL('pages/settings.html');
 });
 
+function applyAppVersion() {
+  var footer = $('appFooter');
+  if (!footer) return;
+  var v = chrome.runtime.getManifest().version;
+  footer.textContent = '仅限授权安全测试 · 绷着脸 StiffEyes v' + v;
+}
+
 /* 首屏即构建侧栏，避免空布局导致弹窗被 Chrome 压窄 */
+applyAppVersion();
 buildScanUi();
 init();

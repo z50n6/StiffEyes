@@ -24,6 +24,26 @@ function loadSession(tabId, suffix) {
   });
 }
 
+function springLocalKey(tabId) {
+  return 'springScan_' + tabId;
+}
+
+function saveSpringLocal(tabId, state) {
+  if (tabId == null) return Promise.resolve();
+  var patch = {};
+  patch[springLocalKey(tabId)] = state;
+  return chrome.storage.local.set(patch);
+}
+
+function dedupePaths(list) {
+  var seen = Object.create(null);
+  return list.filter(function (p) {
+    if (seen[p]) return false;
+    seen[p] = true;
+    return true;
+  });
+}
+
 function updateBadge(tabId, count) {
   var text = count > 0 ? String(Math.min(count, 99)) : '';
   chrome.action.setBadgeText({ tabId: tabId, text: text });
@@ -117,9 +137,30 @@ function proxyFetch(url, timeoutMs) {
 
 var SPRING_FETCH_TIMEOUT_MS = 8000;
 var SPRING_FETCH_CONCURRENCY = 12;
+var springJobs = new Map();
 
-function springFetchOne(url) {
+function cancelSpringScan(tabId) {
+  var job = springJobs.get(tabId);
+  if (!job || job.settled) return false;
+  job.cancelled = true;
+  job.queue.length = 0;
+  job.controllers.forEach(function (ctrl) {
+    try {
+      ctrl.abort();
+    } catch (e) {}
+  });
+  if (job.active === 0) {
+    job.finish(false, true);
+  }
+  return true;
+}
+
+function springFetchOne(url, job) {
+  if (job.cancelled) {
+    return Promise.resolve({ ok: false, status: 0, skipped: true });
+  }
   var ctrl = new AbortController();
+  job.controllers.add(ctrl);
   var timer = setTimeout(function () {
     ctrl.abort();
   }, SPRING_FETCH_TIMEOUT_MS);
@@ -137,6 +178,7 @@ function springFetchOne(url) {
     })
     .finally(function () {
       clearTimeout(timer);
+      job.controllers.delete(ctrl);
     });
 }
 
@@ -152,8 +194,8 @@ function pushSpringProgress(completed, total, scanning, tabId) {
   };
   if (tabId != null) {
     saveSession(tabId, 'spring', state);
+    saveSpringLocal(tabId, state);
   }
-  chrome.storage.local.set({ springScanState: state });
   chrome.runtime
     .sendMessage({
       action: 'updateProgress',
@@ -171,6 +213,7 @@ function pushSpringComplete(resultsText, tabId) {
     completed: 0,
     total: 0,
     scanning: false,
+    cancelled: false,
     results: resultsText,
     tabId: tabId,
     updatedAt: Date.now()
@@ -178,11 +221,8 @@ function pushSpringComplete(resultsText, tabId) {
   if (tabId != null) {
     saveSession(tabId, 'springResults', resultsText);
     saveSession(tabId, 'spring', payload);
+    saveSpringLocal(tabId, payload);
   }
-  chrome.storage.local.set({
-    scanResults: resultsText,
-    springScanState: payload
-  });
   chrome.runtime
     .sendMessage({
       action: 'updateResults',
@@ -192,13 +232,45 @@ function pushSpringComplete(resultsText, tabId) {
     .catch(function () {});
 }
 
+function pushSpringCancelled(resultsText, tabId, completed, total) {
+  var progress = total ? Math.round((completed / total) * 100) : 0;
+  var payload = {
+    progress: progress,
+    completed: completed,
+    total: total,
+    scanning: false,
+    cancelled: true,
+    results: resultsText,
+    tabId: tabId,
+    updatedAt: Date.now()
+  };
+  if (tabId != null) {
+    saveSession(tabId, 'springResults', resultsText);
+    saveSession(tabId, 'spring', payload);
+    saveSpringLocal(tabId, payload);
+  }
+  chrome.runtime
+    .sendMessage({
+      action: 'springScanCancelled',
+      results: resultsText,
+      progress: progress,
+      completed: completed,
+      total: total,
+      tabId: tabId
+    })
+    .catch(function () {});
+}
+
 function scanDirectories(tabId, tabUrl) {
+  cancelSpringScan(tabId);
+
   return new Promise(function (resolve, reject) {
     chrome.storage.local.get(['directories'], function (stored) {
       var paths = stored.directories;
       if (!Array.isArray(paths) || !paths.length) {
         paths = StiffEyesPaths.DEFAULT_SPRING_PATHS.slice();
       }
+      paths = dedupePaths(paths);
 
       var parsed;
       try {
@@ -213,57 +285,88 @@ function scanDirectories(tabId, tabUrl) {
         return;
       }
 
-      var resultsText = '';
-      var completed = 0;
       var total = paths.length;
-      var queue = paths.slice();
-      var active = 0;
-      var settled = false;
-
       if (!total) {
         reject({ error: '路径列表为空，请先在设置中配置' });
         return;
       }
 
+      var job = {
+        tabId: tabId,
+        cancelled: false,
+        settled: false,
+        active: 0,
+        completed: 0,
+        total: total,
+        resultsText: '',
+        queue: paths.slice(),
+        controllers: new Set(),
+        finish: function (success, wasCancelled) {
+          if (job.settled) return;
+          job.settled = true;
+          springJobs.delete(tabId);
+          if (wasCancelled) {
+            pushSpringCancelled(job.resultsText, tabId, job.completed, job.total);
+            resolve({ results: job.resultsText, cancelled: true });
+          } else if (success) {
+            pushSpringComplete(job.resultsText, tabId);
+            resolve({ results: job.resultsText });
+          }
+        }
+      };
+
+      springJobs.set(tabId, job);
       pushSpringProgress(0, total, true, tabId);
 
-      function finishScan() {
-        if (settled) return;
-        settled = true;
-        pushSpringComplete(resultsText, tabId);
-        resolve({ results: resultsText });
-      }
-
       function pump() {
-        while (active < SPRING_FETCH_CONCURRENCY && queue.length) {
+        if (job.cancelled) {
+          if (job.active === 0) job.finish(false, true);
+          return;
+        }
+        while (
+          job.active < SPRING_FETCH_CONCURRENCY &&
+          job.queue.length &&
+          !job.cancelled
+        ) {
           (function (directory) {
-            active += 1;
+            job.active += 1;
             var fullUrl = StiffEyesPaths.buildSpringUrl(
               parsed.origin,
               parsed.pathname,
               directory
             );
 
-            springFetchOne(fullUrl)
+            springFetchOne(fullUrl, job)
               .then(function (out) {
-                if (out.ok && out.status) {
-                  resultsText += fullUrl + ' [' + out.status + ']\n';
-                } else {
-                  resultsText += fullUrl + ' [Error]\n';
+                if (
+                  !job.cancelled &&
+                  out.ok &&
+                  out.status >= 200 &&
+                  out.status < 400
+                ) {
+                  job.resultsText += fullUrl + ' [' + out.status + ']\n';
                 }
               })
               .finally(function () {
-                active -= 1;
-                completed += 1;
-                pushSpringProgress(completed, total, completed < total, tabId);
-
-                if (completed >= total) {
-                  finishScan();
-                } else {
-                  pump();
+                job.active -= 1;
+                if (!job.cancelled) {
+                  job.completed += 1;
+                  pushSpringProgress(
+                    job.completed,
+                    job.total,
+                    job.completed < job.total,
+                    tabId
+                  );
+                  if (job.completed >= job.total) {
+                    job.finish(true, false);
+                  } else {
+                    pump();
+                  }
+                } else if (job.active === 0) {
+                  job.finish(false, true);
                 }
               });
-          })(queue.shift());
+          })(job.queue.shift());
         }
       }
 
@@ -294,35 +397,6 @@ chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
       .catch(function () {
         sendResponse({ content: null });
       });
-    return true;
-  }
-
-  if (msg.type === 'REGEX_MATCH') {
-    var chunk = msg.chunk || '';
-    var patterns = msg.patterns || [];
-    var matches = [];
-    var maxIterations = 10000;
-    patterns.forEach(function (patternInfo) {
-      var patternString = patternInfo.pattern;
-      var regex;
-      try {
-        var m = patternString.match(/^\/(.+)\/([gimuy]*)$/);
-        if (m) regex = new RegExp(m[1], m[2]);
-        else return;
-      } catch (e) {
-        return;
-      }
-      var patternLastIndex = 0;
-      var match;
-      while ((match = regex.exec(chunk)) !== null) {
-        if (regex.lastIndex <= patternLastIndex) break;
-        patternLastIndex = regex.lastIndex;
-        if (--maxIterations <= 0) break;
-        matches.push({ match: match[0] });
-      }
-      regex.lastIndex = 0;
-    });
-    sendResponse({ matches: matches });
     return true;
   }
 
@@ -358,6 +432,9 @@ chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
         StiffEyesPatterns.normalizeScanResult(scan);
       }
       var finger = arr[1] || tabFingerprints.get(tabId) || [];
+      if (tabId && finger.length) {
+        tabFingerprints.set(tabId, finger);
+      }
       sendResponse({
         scan: scan,
         fingerprints: finger,
@@ -366,6 +443,16 @@ chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
       });
     });
     return true;
+  }
+
+  if (msg.type === 'SPRING_SCAN_CANCEL' || msg.action === 'cancelSpringScan') {
+    var cancelTabId = msg.tabId != null ? msg.tabId : tabId;
+    if (cancelTabId == null) {
+      sendResponse({ ok: false, error: '无标签页' });
+      return false;
+    }
+    sendResponse({ ok: cancelSpringScan(cancelTabId) });
+    return false;
   }
 
   if (msg.type === 'SPRING_SCAN' || msg.action === 'scanDirectories') {
@@ -389,7 +476,7 @@ chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
           updatedAt: Date.now()
         };
         saveSession(tab.id, 'spring', errState);
-        chrome.storage.local.set({ springScanState: errState });
+        saveSpringLocal(tab.id, errState);
         chrome.runtime
           .sendMessage({ action: 'springScanError', error: errMsg, tabId: tab.id })
           .catch(function () {});

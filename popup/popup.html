@@ -46,14 +46,17 @@
 
     <section id="panel-spring" class="panel">
       <div class="toolbar toolbar-stack">
-        <button type="button" class="btn btn-accent" id="btnSpringScan">开始扫描</button>
+        <div class="toolbar-row">
+          <button type="button" class="btn btn-accent" id="btnSpringScan">开始扫描</button>
+          <button type="button" class="btn hidden" id="btnSpringCancel" disabled>中止扫描</button>
+        </div>
         <div class="progress-wrap" id="springProgressWrap">
           <div class="progress-track">
             <div class="progress-fill" id="springProgress"></div>
           </div>
           <span class="progress-label" id="springProgressText">0%</span>
         </div>
-        <p class="notice spring-notice">路径在「设置」中配置；扫描完成后结果将显示在下方。</p>
+        <p class="notice spring-notice">路径在「设置」中配置；仅记录 2xx/3xx 响应。扫描过程中可点「中止扫描」。</p>
       </div>
       <ul class="list list-spring" id="listSpring"></ul>
     </section>
@@ -124,8 +127,8 @@
 
   </main>
 
-  <footer class="footer">
-    仅限授权安全测试 · 绷着脸 StiffEyes v1.0.6
+  <footer class="footer" id="appFooter">
+    仅限授权安全测试 · 绷着脸 StiffEyes
   </footer>
   </div>
   <script src="../lib/spring-paths.js"></script>

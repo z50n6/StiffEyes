@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "绷着脸",
   "short_name": "绷着脸",
-  "version": "1.0.6",
+  "version": "1.0.10",
   "description": "绷着脸 StiffEyes：页面资产梳理、技术指纹、Spring 探测、Webpack 映射。仅限授权安全测试。",
   "icons": {
     "16": "icons/icon16.png",
@@ -28,7 +28,6 @@
         "lib/scan-config.js",
         "lib/scan-filter.js",
         "lib/scan-engine.js",
-        "lib/patterns.js",
         "content/webpack-collector.js"
       ],
       "run_at": "document_idle"
@@ -41,6 +40,6 @@
       "48": "icons/icon48.png",
       "128": "icons/icon128.png"
     },
-    "default_title": "绷着脸 · 网检"
+    "default_title": "绷着脸"
   }
 }

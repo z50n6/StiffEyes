@@ -17,7 +17,7 @@ function showToast(message) {
 
 function load() {
   chrome.storage.local.get(
-    ['directories', 'blacklist_domains', 'base_path', 'deepScan', 'skip_third_party_js'],
+    ['directories', 'blacklist_domains', 'base_path', 'deepScan', 'skip_third_party_js', 'dynamicScan'],
     function (data) {
       $('directories').value = data.directories
         ? data.directories.join('\n')
@@ -26,8 +26,36 @@ function load() {
       $('basePath').value = data.base_path || '';
       $('deepScan').checked = data.deepScan !== false;
       $('skipThirdPartyJs').checked = data.skip_third_party_js !== false;
+      $('dynamicScan').checked = data.dynamicScan === true;
     }
   );
+}
+
+function notifyOpenTabsRescan(scanOpts) {
+  chrome.tabs.query({ url: ['http://*/*', 'https://*/*'] }, function (tabs) {
+    (tabs || []).forEach(function (tab) {
+      if (!tab.id) return;
+      chrome.tabs
+        .sendMessage(tab.id, {
+          type: 'UPDATE_DYNAMIC_SCAN',
+          enabled: scanOpts.dynamicScan
+        })
+        .catch(function () {});
+      chrome.tabs
+        .sendMessage(tab.id, {
+          type: 'UPDATE_DEEP_SCAN',
+          enabled: scanOpts.deepScan
+        })
+        .catch(function () {});
+      chrome.tabs
+        .sendMessage(tab.id, {
+          type: 'UPDATE_SKIP_THIRD_PARTY_JS',
+          enabled: scanOpts.skipThirdPartyJs
+        })
+        .catch(function () {});
+      chrome.tabs.sendMessage(tab.id, { type: 'REFRESH_SCAN' }).catch(function () {});
+    });
+  });
 }
 
 function saveAll() {
@@ -39,17 +67,24 @@ function saveAll() {
     .split('\n')
     .map(function (s) { return s.trim(); })
     .filter(Boolean);
+  var scanOpts = {
+    deepScan: $('deepScan').checked,
+    skipThirdPartyJs: $('skipThirdPartyJs').checked,
+    dynamicScan: $('dynamicScan').checked
+  };
 
   chrome.storage.local.set(
     {
       directories: directories,
       blacklist_domains: blacklist_domains,
       base_path: $('basePath').value.trim(),
-      deepScan: $('deepScan').checked,
-      skip_third_party_js: $('skipThirdPartyJs').checked
+      deepScan: scanOpts.deepScan,
+      skip_third_party_js: scanOpts.skipThirdPartyJs,
+      dynamicScan: scanOpts.dynamicScan
     },
     function () {
-      showToast('设置已保存');
+      notifyOpenTabsRescan(scanOpts);
+      showToast('设置已保存，已触发已打开页面重新扫描');
     }
   );
 }

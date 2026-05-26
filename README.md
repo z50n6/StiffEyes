@@ -25,7 +25,7 @@
 | **Spring 探测** | 按配置路径并发探测 Actuator / Swagger 等端点 |
 | **Webpack** | 打包识别、Source Map 提取 / 分析 / 下载、分包下载 |
 
-打开普通网页后**自动扫描**（深度模式会拉取外链 JS）。可在设置中配置域名黑名单、深度扫描、三方 JS 过滤等。
+打开普通网页后**自动扫描**（深度模式会拉取外链 JS）。可在设置中配置域名黑名单、深度扫描、动态扫描、三方 JS 过滤、API 基础路径等；**保存设置后会对已打开的 http(s) 页面自动重新扫描**。
 
 ---
 
@@ -56,13 +56,19 @@ StiffEyes/
 ├── manifest.json          # 扩展清单（MV3）
 ├── background.js          # 后台：会话、Spring 扫描、JS 代理拉取
 ├── lib/
-│   ├── scan-config.js     # 扫描规则配置
+│   ├── scan-config.js     # 扫描规则配置（内容脚本扫描源）
 │   ├── scan-filter.js     # 匹配过滤器
 │   ├── scan-engine.js     # 内容脚本扫描引擎
-│   └── patterns.js        # Popup 分类与工具函数
-├── content/               # 内容脚本
-├── popup/                 # 弹窗界面
-├── pages/                 # 设置页等
+│   ├── patterns.js        # Popup 侧栏分类与统计（仅 popup/background）
+│   ├── fingerprint-rules.js
+│   ├── spring-paths.js
+│   └── webpack-scan-rules.js
+├── content/
+│   └── webpack-collector.js
+├── popup/
+├── pages/
+│   ├── settings.html      # 总设置（含 Spring 路径）
+│   └── spring-results.html
 └── icons/                 # 图标资源
 ```
 

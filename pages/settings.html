@@ -8,7 +8,7 @@
 <body class="spring-page">
   <header class="spring-page-header">
     <h1>总设置</h1>
-    <p class="spring-page-hint">配置保存在浏览器本地，仅用于授权安全测试。保存后将立即生效。</p>
+    <p class="spring-page-hint">配置保存在浏览器本地，仅用于授权安全测试。保存后将对已打开的 http(s) 页面自动重新扫描。</p>
   </header>
 
   <label class="spring-label" for="directories">Spring 探测路径（每行一条，以 / 开头）</label>
@@ -17,13 +17,14 @@
   <label class="spring-label" for="blacklist" style="margin-top:18px">域名黑名单（每行一个，命中后跳过信息收集）</label>
   <textarea id="blacklist" class="spring-textarea" rows="6" placeholder="example.com" style="min-height:140px"></textarea>
 
-  <label class="spring-label" for="basePath" style="margin-top:18px">基础路径（拼接相对 URL 时使用，如 /api/v1）</label>
+  <label class="spring-label" for="basePath" style="margin-top:18px">基础路径（复制相对 API 为完整 URL 时拼接，如 /api/v1）</label>
   <input type="text" id="basePath" class="spring-input" placeholder="/" />
 
   <div style="margin-top:18px">
     <label class="spring-label">扫描选项</label>
     <label class="spring-check"><input type="checkbox" id="deepScan" checked /> 深度扫描：拉取外链 JS 并提取接口/Map</label>
     <label class="spring-check"><input type="checkbox" id="skipThirdPartyJs" checked /> JS 去噪：跳过常见三方库（jQuery/Bootstrap/CDN 等）</label>
+    <label class="spring-check"><input type="checkbox" id="dynamicScan" /> 动态扫描：DOM 变更时重新扫描当前页面</label>
   </div>
 
   <div class="spring-actions" style="margin-top:18px">

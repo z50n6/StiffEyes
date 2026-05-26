@@ -1,13 +1,13 @@
 (function () {
   var resultsEl = document.getElementById('results');
 
-  chrome.storage.local.get(['scanResults'], function (data) {
-    if (!data.scanResults) {
-      resultsEl.textContent = '暂无扫描结果';
+  function renderResults(text) {
+    if (!text || !text.trim()) {
+      resultsEl.textContent = '暂无扫描结果（仅记录 HTTP 2xx/3xx 响应）';
       return;
     }
 
-    var resultItems = data.scanResults.split('\n').filter(function (item) {
+    var resultItems = text.split('\n').filter(function (item) {
       return item.trim() !== '';
     });
 
@@ -15,7 +15,10 @@
       var urlMatch = item.match(/(https?:\/\/[^\s]+)/);
       if (urlMatch) {
         var url = urlMatch[0];
-        return item.replace(url, '<a href="' + url + '" target="_blank" rel="noopener">' + url + '</a>');
+        return item.replace(
+          url,
+          '<a href="' + url + '" target="_blank" rel="noopener">' + url + '</a>'
+        );
       }
       return item;
     });
@@ -28,29 +31,46 @@
       return 0;
     });
 
+    resultsEl.innerHTML = '';
     resultItems.forEach(function (item) {
       var div = document.createElement('div');
       div.className = 'spring-result-item';
 
       var statusMatch = item.match(/\[(\d+)\]/);
-      var errorMatch = item.match(/\[Error\]/);
       var statusBadge = '';
 
       if (statusMatch) {
         var statusCode = parseInt(statusMatch[1], 10);
-        var badgeClass = 'status-other';
-        if (statusCode >= 200 && statusCode < 300) badgeClass = 'status-2xx';
-        else if (statusCode >= 300 && statusCode < 400) badgeClass = 'status-3xx';
-        else if (statusCode >= 400 && statusCode < 500) badgeClass = 'status-4xx';
-        else if (statusCode >= 500) badgeClass = 'status-5xx';
+        var statusClass =
+          statusCode >= 200 && statusCode < 300
+            ? 'status-2xx'
+            : statusCode >= 300 && statusCode < 400
+              ? 'status-3xx'
+              : 'status-other';
         statusBadge =
-          '<span class="status-badge ' + badgeClass + '">' + statusCode + '</span>';
-      } else if (errorMatch) {
-        statusBadge = '<span class="status-badge status-error">Error</span>';
+          '<span class="status-badge ' + statusClass + '">' + statusCode + '</span>';
       }
 
       div.innerHTML = statusBadge + item;
       resultsEl.appendChild(div);
     });
+  }
+
+  chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+    var tab = tabs[0];
+    if (!tab || !tab.id) {
+      resultsEl.textContent = '无法获取当前标签页';
+      return;
+    }
+    chrome.runtime.sendMessage(
+      { type: 'GET_SCAN_RESULTS', tabId: tab.id },
+      function (res) {
+        if (chrome.runtime.lastError) {
+          resultsEl.textContent = '读取结果失败';
+          return;
+        }
+        renderResults(res && res.springResults);
+      }
+    );
   });
 })();
