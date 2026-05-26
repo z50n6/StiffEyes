@@ -1,0 +1,33 @@
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs & temp
+*.log
+npm-debug.log*
+.tmp/
+temp/
+
+# Python (icon export script)
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Archives
+*.zip
+*.crx
+*.pem
+*.key
+
+# Local overrides
+.env
+.env.*

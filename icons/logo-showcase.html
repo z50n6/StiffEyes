@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <title>绷着脸 · Logo 方案</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+      background: #f4f4f5;
+      color: #18181b;
+      padding: 32px;
+      line-height: 1.6;
+    }
+    h1 { font-size: 22px; margin-bottom: 8px; }
+    .sub { color: #71717a; margin-bottom: 28px; font-size: 14px; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 20px;
+    }
+    .card {
+      background: #fff;
+      border: 1px solid #d4d4d8;
+      border-radius: 8px;
+      padding: 20px;
+    }
+    .card h2 { font-size: 15px; margin-bottom: 6px; }
+    .card p { font-size: 12px; color: #71717a; margin-bottom: 16px; }
+    .preview {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+      min-height: 140px;
+      background: #fafafa;
+      border: 1px solid #e4e4e7;
+      border-radius: 6px;
+      margin-bottom: 12px;
+    }
+    .preview.dark { background: #18181b; }
+    .sizes { display: flex; align-items: flex-end; gap: 12px; }
+    .sizes img { display: block; image-rendering: pixelated; }
+    .tag {
+      display: inline-block;
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 4px;
+      background: #ecfdf5;
+      color: #0f766e;
+      margin-top: 8px;
+    }
+    .rec { border-color: #0f766e; box-shadow: 0 0 0 1px #0f766e; }
+    .rec .tag::after { content: ' · 推荐用于扩展'; }
+  </style>
+</head>
+<body>
+  <h1>绷着脸 · Logo 设计</h1>
+  <p class="sub">不苟言笑，认真看站 — 主色 #0f766e，与 Popup 扁平风格一致</p>
+
+  <div class="grid">
+    <div class="card rec">
+      <h2>方案 A · 取景框脸（推荐）</h2>
+      <p>直线嘴表达「绷着」；四角框表达「看站/网检」。扩展图标首选。</p>
+      <div class="preview">
+        <img src="logo.svg" width="96" height="96" alt="主 Logo" />
+      </div>
+      <div class="sizes">
+        <img src="icon16.png" width="16" height="16" alt="16" />
+        <img src="icon48.png" width="48" height="48" alt="48" />
+        <img src="icon128.png" width="128" height="128" alt="128" />
+      </div>
+      <span class="tag">已写入 manifest</span>
+    </div>
+
+    <div class="card">
+      <h2>方案 B · 深色版</h2>
+      <p>与顶栏 #18181b 同系，适合深色背景展示或 README。</p>
+      <div class="preview dark">
+        <img src="logo-dark.svg" width="96" height="96" alt="深色 Logo" />
+      </div>
+    </div>
+  </div>
+</body>
+</html>

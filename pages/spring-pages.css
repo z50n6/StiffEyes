@@ -1,0 +1,187 @@
+.spring-page {
+  font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 24px 20px 40px;
+  color: #18181b;
+  background: #ffffff;
+  line-height: 1.5;
+}
+
+.spring-page-header {
+  margin-bottom: 20px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid #0f766e;
+}
+
+.spring-page-header h1 {
+  font-size: 20px;
+  font-weight: 700;
+  color: #18181b;
+}
+
+.spring-page-hint {
+  font-size: 13px;
+  color: #71717a;
+  margin-top: 6px;
+}
+
+.spring-label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+
+.spring-textarea {
+  width: 100%;
+  min-height: 420px;
+  font-family: Consolas, 'Cascadia Code', monospace;
+  font-size: 12px;
+  padding: 10px;
+  border: 1px solid #d4d4d8;
+  border-radius: 4px;
+  background: #fafafa;
+  resize: vertical;
+}
+
+.spring-textarea:focus {
+  outline: 2px solid #0f766e;
+  outline-offset: 0;
+  border-color: #0f766e;
+}
+
+.spring-input {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #d4d4d8;
+  border-radius: 4px;
+  background: #ffffff;
+  font-size: 13px;
+}
+
+.spring-input:focus {
+  outline: 2px solid #0f766e;
+  outline-offset: 0;
+  border-color: #0f766e;
+}
+
+.spring-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #18181b;
+  margin: 8px 0 0;
+}
+
+.spring-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+  flex-wrap: wrap;
+}
+
+.spring-btn {
+  padding: 8px 16px;
+  font-size: 13px;
+  border: 1px solid #d4d4d8;
+  border-radius: 4px;
+  background: #f4f4f5;
+  color: #18181b;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.spring-btn:hover {
+  background: #e4e4e7;
+}
+
+.spring-btn-primary {
+  background: #0f766e;
+  border-color: #0f766e;
+  color: #ffffff;
+}
+
+.spring-btn-primary:hover {
+  background: #0d9488;
+  border-color: #0d9488;
+}
+
+.spring-results {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.spring-result-item {
+  padding: 12px 10px;
+  border-bottom: 1px solid #e4e4e7;
+  font-size: 13px;
+  word-break: break-all;
+}
+
+.spring-result-item a {
+  color: #0f766e;
+  text-decoration: underline;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  margin-right: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  border: 1px solid transparent;
+  vertical-align: middle;
+}
+
+.status-2xx {
+  background: #dcfce7;
+  color: #166534;
+  border-color: #86efac;
+}
+
+.status-3xx {
+  background: #dbeafe;
+  color: #1e40af;
+  border-color: #93c5fd;
+}
+
+.status-4xx {
+  background: #fef9c3;
+  color: #854d0e;
+  border-color: #fde047;
+}
+
+.status-5xx,
+.status-error {
+  background: #fee2e2;
+  color: #991b1b;
+  border-color: #fca5a5;
+}
+
+.status-other {
+  background: #f4f4f5;
+  color: #3f3f46;
+  border-color: #d4d4d8;
+}
+
+.spring-toast {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #18181b;
+  color: #fafafa;
+  padding: 10px 20px;
+  font-size: 13px;
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(24, 24, 27, 0.15);
+  z-index: 1000;
+  transition: opacity 0.3s ease;
+}
+
+.spring-toast-hide {
+  opacity: 0;
+}

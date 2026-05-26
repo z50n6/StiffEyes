@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>绷着脸 · 网检</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <div class="app-shell">
+  <header class="header">
+    <div class="header-main">
+      <img class="brand-mark" src="../icons/icon48.png" width="28" height="28" alt="" />
+      <div class="brand-text">
+        <div class="brand-row">
+          <h1>绷着脸</h1>
+          <span class="tagline">不苟言笑，认真看站</span>
+        </div>
+      </div>
+      <p class="host" id="currentHost" title="当前页面">—</p>
+      <button type="button" class="btn btn-header" id="btnSettings" title="打开设置">设置</button>
+    </div>
+  </header>
+
+  <nav class="tabs" id="mainTabs" role="tablist">
+    <button type="button" class="tab active" data-panel="panel-scan" role="tab">信息收集</button>
+    <button type="button" class="tab" data-panel="panel-finger" role="tab">指纹</button>
+    <button type="button" class="tab" data-panel="panel-spring" role="tab">Spring探测</button>
+    <button type="button" class="tab" data-panel="panel-webpack" role="tab">Webpack</button>
+  </nav>
+
+  <main>
+    <section id="panel-scan" class="panel active">
+      <div class="scan-layout">
+        <nav class="scan-sidebar" id="scanSubtabs" aria-label="信息分类"></nav>
+        <div class="scan-content">
+          <div id="scanPanels"></div>
+          <p class="scan-status hidden" id="scanStatus">深度扫描进行中，正在拉取外链 JS…</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="panel-finger" class="panel">
+      <ul class="list" id="listFinger"></ul>
+    </section>
+
+    <section id="panel-spring" class="panel">
+      <div class="toolbar toolbar-stack">
+        <button type="button" class="btn btn-accent" id="btnSpringScan">开始扫描</button>
+        <div class="progress-wrap" id="springProgressWrap">
+          <div class="progress-track">
+            <div class="progress-fill" id="springProgress"></div>
+          </div>
+          <span class="progress-label" id="springProgressText">0%</span>
+        </div>
+        <p class="notice spring-notice">路径在「设置」中配置；扫描完成后结果将显示在下方。</p>
+      </div>
+      <ul class="list list-spring" id="listSpring"></ul>
+    </section>
+
+    <section id="panel-webpack" class="panel">
+      <div id="webpackMainView">
+        <p class="notice" id="webpackStatus">点击「提取映射」开始</p>
+        <div class="toolbar toolbar-stack">
+          <div class="toolbar-row">
+            <button type="button" class="btn btn-accent" id="wpExtractBtn">提取映射</button>
+            <button type="button" class="btn" id="wpCopyBtn" disabled>一键复制</button>
+            <button type="button" class="btn" id="wpLoadBtn" disabled>一键加载</button>
+          </div>
+          <div class="toolbar-row">
+            <button type="button" class="btn" id="wpAnalyzeBtn" disabled>一键分析</button>
+            <button type="button" class="btn" id="wpDownloadBtn" disabled>一键下载</button>
+            <button type="button" class="btn" id="wpChunkNavBtn">JS分包下载</button>
+          </div>
+        </div>
+        <div class="toolbar toolbar-stack">
+          <div class="toolbar-row">
+            <button type="button" class="btn" id="wpImportRulesBtn">导入规则</button>
+            <button type="button" class="btn" id="wpExportRulesBtn">导出自定义规则</button>
+          </div>
+          <div class="toolbar-row">
+            <button type="button" class="btn" id="wpExportDefaultBtn">导出默认规则</button>
+            <button type="button" class="btn" id="wpResetRulesBtn">重置规则</button>
+          </div>
+        </div>
+        <label class="wp-check-row">
+          <input type="checkbox" id="wpReplaceMode" />
+          <span>替换模式（勾选后导入规则完全替换默认规则，否则合并）</span>
+        </label>
+        <input type="file" id="wpRulesFile" accept=".json,.js" hidden />
+        <div class="progress-wrap hidden" id="wpProgressWrap">
+          <div class="progress-track">
+            <div class="progress-fill" id="wpProgressFill"></div>
+          </div>
+          <span class="progress-label" id="wpProgressText">0% (0/0)</span>
+          <p class="wp-progress-url" id="wpProgressUrl"></p>
+        </div>
+        <ul class="list wp-results" id="wpResults"></ul>
+        <p class="notice wp-status-msg hidden" id="wpStatusMsg"></p>
+      </div>
+      <div id="webpackChunkView" class="hidden">
+        <div class="toolbar">
+          <button type="button" class="btn" id="wpBackBtn">返回</button>
+          <span class="wp-subtitle">JS 分包下载</span>
+        </div>
+        <p class="notice">填写入口 JS 与 chunk 基础路径，解析后逐个下载。</p>
+        <label class="field-label" for="wpChunkEntry">入口 JS 地址</label>
+        <input type="url" class="wp-input" id="wpChunkEntry" placeholder="https://example.com/static/js/app.xxx.js" />
+        <label class="field-label" for="wpChunkBase">基础路径（必填）</label>
+        <input type="text" class="wp-input" id="wpChunkBase" placeholder="https://example.com/static/js/" />
+        <div class="toolbar">
+          <button type="button" class="btn btn-accent" id="wpChunkStartBtn">开始下载</button>
+        </div>
+        <div class="progress-wrap hidden" id="wpChunkProgressWrap">
+          <div class="progress-track">
+            <div class="progress-fill" id="wpChunkProgressFill"></div>
+          </div>
+          <span class="progress-label" id="wpChunkProgressText">0% (0/0)</span>
+        </div>
+        <ul class="list wp-results" id="wpChunkResults"></ul>
+        <p class="notice wp-status-msg hidden" id="wpChunkStatusMsg"></p>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="footer">
+    仅限授权安全测试 · 绷着脸 StiffEyes v1.0.6
+  </footer>
+  </div>
+  <script src="../lib/spring-paths.js"></script>
+  <script src="../lib/patterns.js"></script>
+  <script src="../lib/webpack-scan-rules.js"></script>
+  <script src="../lib/webpack-core.js"></script>
+  <script src="webpack-panel.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>
