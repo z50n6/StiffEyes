@@ -255,53 +255,6 @@ function updateScanStatus(data) {
   }
 }
 
-// 搜索过滤
-$('scanSearch')?.addEventListener('input', function () {
-  var query = this.value.toLowerCase().trim();
-  var panels = $('scanPanels');
-  if (!panels) return;
-  var wraps = panels.querySelectorAll('.list-wrap');
-  var hasVisible = false;
-  wraps.forEach(function (wrap) {
-    if (wrap.classList.contains('hidden')) return; // 非活跃标签
-    var ul = wrap.querySelector('ul.list');
-    if (!ul) return;
-    var lis = ul.querySelectorAll('li');
-    var anyVisible = false;
-    lis.forEach(function (li) {
-      if (li.classList.contains('empty')) { li.style.display = query ? 'none' : ''; return; }
-      var text = (li.textContent || '').toLowerCase();
-      var src = (li.dataset.src || '').toLowerCase();
-      var visible = !query || text.includes(query) || src.includes(query);
-      li.style.display = visible ? '' : 'none';
-      if (visible) anyVisible = true;
-    });
-    // 更新面板计数
-    var meta = wrap.querySelector('.panel-meta');
-    if (meta) {
-      var visibleCount = wrap.querySelectorAll('li:not([style*="display: none"]):not(.empty)').length;
-      meta.textContent = query ? visibleCount + ' / ' + (lis.length - 1) + ' 条' : (lis.length - 1) + ' 条';
-    }
-    if (anyVisible) hasVisible = true;
-  });
-  // 如果没有匹配项，显示空状态
-  if (query && !hasVisible) {
-    var activeWrap = panels.querySelector('.list-wrap:not(.hidden) ul.list');
-    if (activeWrap) {
-      var existingEmpty = activeWrap.querySelector('.search-empty');
-      if (!existingEmpty) {
-        var emptyLi = document.createElement('li');
-        emptyLi.className = 'empty search-empty';
-        emptyLi.textContent = '无匹配结果';
-        activeWrap.appendChild(emptyLi);
-      }
-    }
-  } else {
-    var empties = panels.querySelectorAll('.search-empty');
-    empties.forEach(function (e) { e.remove(); });
-  }
-});
-
 function renderScan(data) {
   buildScanUi();
   updateScanStatus(data);

@@ -752,35 +752,6 @@ textarea:focus {
 
 .progress-badge.hidden { display: none; }
 
-/* --- 搜索框 --- */
-.scan-search-wrap {
-  padding: 8px 14px;
-  border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
-}
-
-.scan-search {
-  width: 100%;
-  padding: 6px 10px;
-  font-size: 12px;
-  font-family: var(--font);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  outline: none;
-  background: var(--bg-muted);
-  color: var(--text);
-  transition: border-color 0.15s, box-shadow 0.15s;
-}
-
-.scan-search:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--glow);
-}
-
-.scan-search::placeholder {
-  color: var(--text-faint);
-}
-
 /* ========== Cloud Bucket Panel ========== */
 #panel-cloud {
   max-height: 480px;
