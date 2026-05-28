@@ -3,26 +3,26 @@
   max-width: 960px;
   margin: 0 auto;
   padding: 24px 20px 40px;
-  color: #18181b;
-  background: #ffffff;
+  color: #fafafa;
+  background: #09090b;
   line-height: 1.5;
 }
 
 .spring-page-header {
   margin-bottom: 20px;
   padding-bottom: 12px;
-  border-bottom: 2px solid #0f766e;
+  border-bottom: 1px solid rgba(45, 212, 191, 0.2);
 }
 
 .spring-page-header h1 {
   font-size: 20px;
   font-weight: 700;
-  color: #18181b;
+  color: #fafafa;
 }
 
 .spring-page-hint {
   font-size: 13px;
-  color: #71717a;
+  color: #a1a1aa;
   margin-top: 6px;
 }
 
@@ -31,6 +31,7 @@
   font-weight: 600;
   margin-bottom: 8px;
   font-size: 14px;
+  color: #fafafa;
 }
 
 .spring-textarea {
@@ -39,31 +40,33 @@
   font-family: Consolas, 'Cascadia Code', monospace;
   font-size: 12px;
   padding: 10px;
-  border: 1px solid #d4d4d8;
-  border-radius: 4px;
-  background: #fafafa;
+  border: 1px solid #27272a;
+  border-radius: 6px;
+  background: #18181b;
+  color: #fafafa;
   resize: vertical;
 }
 
 .spring-textarea:focus {
-  outline: 2px solid #0f766e;
-  outline-offset: 0;
-  border-color: #0f766e;
+  outline: none;
+  border-color: #2dd4bf;
+  box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.15);
 }
 
 .spring-input {
   width: 100%;
   padding: 10px;
-  border: 1px solid #d4d4d8;
-  border-radius: 4px;
-  background: #ffffff;
+  border: 1px solid #27272a;
+  border-radius: 6px;
+  background: #18181b;
+  color: #fafafa;
   font-size: 13px;
 }
 
 .spring-input:focus {
-  outline: 2px solid #0f766e;
-  outline-offset: 0;
-  border-color: #0f766e;
+  outline: none;
+  border-color: #2dd4bf;
+  box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.15);
 }
 
 .spring-check {
@@ -71,8 +74,12 @@
   align-items: center;
   gap: 8px;
   font-size: 13px;
-  color: #18181b;
+  color: #a1a1aa;
   margin: 8px 0 0;
+}
+
+.spring-check input {
+  accent-color: #2dd4bf;
 }
 
 .spring-actions {
@@ -85,27 +92,29 @@
 .spring-btn {
   padding: 8px 16px;
   font-size: 13px;
-  border: 1px solid #d4d4d8;
-  border-radius: 4px;
-  background: #f4f4f5;
-  color: #18181b;
+  border: 1px solid #3f3f46;
+  border-radius: 6px;
+  background: #131318;
+  color: #fafafa;
   cursor: pointer;
-  transition: background 0.12s, border-color 0.12s;
+  transition: all 0.15s ease;
 }
 
 .spring-btn:hover {
-  background: #e4e4e7;
+  background: #18181b;
+  border-color: #a1a1aa;
 }
 
 .spring-btn-primary {
-  background: #0f766e;
-  border-color: #0f766e;
-  color: #ffffff;
+  background: linear-gradient(135deg, #0d9488, #14b8a6);
+  border: none;
+  color: #042f2e;
+  box-shadow: 0 2px 8px rgba(45, 212, 191, 0.25);
 }
 
 .spring-btn-primary:hover {
-  background: #0d9488;
-  border-color: #0d9488;
+  filter: brightness(1.1);
+  box-shadow: 0 4px 12px rgba(45, 212, 191, 0.4);
 }
 
 .spring-results {
@@ -116,13 +125,14 @@
 
 .spring-result-item {
   padding: 12px 10px;
-  border-bottom: 1px solid #e4e4e7;
+  border-bottom: 1px solid #27272a;
   font-size: 13px;
   word-break: break-all;
+  color: #fafafa;
 }
 
 .spring-result-item a {
-  color: #0f766e;
+  color: #2dd4bf;
   text-decoration: underline;
 }
 
@@ -133,38 +143,39 @@
   font-size: 11px;
   font-weight: 700;
   border: 1px solid transparent;
+  border-radius: 4px;
   vertical-align: middle;
 }
 
 .status-2xx {
-  background: #dcfce7;
-  color: #166534;
-  border-color: #86efac;
+  background: rgba(34, 197, 94, 0.1);
+  color: #4ade80;
+  border-color: rgba(74, 222, 128, 0.3);
 }
 
 .status-3xx {
-  background: #dbeafe;
-  color: #1e40af;
-  border-color: #93c5fd;
+  background: rgba(45, 212, 191, 0.1);
+  color: #2dd4bf;
+  border-color: rgba(45, 212, 191, 0.3);
 }
 
 .status-4xx {
-  background: #fef9c3;
-  color: #854d0e;
-  border-color: #fde047;
+  background: rgba(245, 158, 11, 0.1);
+  color: #fbbf24;
+  border-color: rgba(251, 191, 36, 0.3);
 }
 
 .status-5xx,
 .status-error {
-  background: #fee2e2;
-  color: #991b1b;
-  border-color: #fca5a5;
+  background: rgba(239, 68, 68, 0.1);
+  color: #f87171;
+  border-color: rgba(248, 113, 113, 0.3);
 }
 
 .status-other {
-  background: #f4f4f5;
-  color: #3f3f46;
-  border-color: #d4d4d8;
+  background: #18181b;
+  color: #a1a1aa;
+  border-color: #27272a;
 }
 
 .spring-toast {
@@ -176,8 +187,9 @@
   color: #fafafa;
   padding: 10px 20px;
   font-size: 13px;
-  border-radius: 6px;
-  box-shadow: 0 4px 12px rgba(24, 24, 27, 0.15);
+  border-radius: 8px;
+  border: 1px solid #27272a;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
   z-index: 1000;
   transition: opacity 0.3s ease;
 }

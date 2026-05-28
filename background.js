@@ -33,7 +33,7 @@ function getTabCount(tabId, callback) {
 function setBadgeUI(tabId, count) {
   const hasCount = count > 0;
   chrome.action.setBadgeText({ text: hasCount ? String(count) : '', tabId });
-  chrome.action.setBadgeBackgroundColor({ color: hasCount ? '#0f766e' : '#71717a', tabId });
+  chrome.action.setBadgeBackgroundColor({ color: hasCount ? '#0d9488' : '#71717a', tabId });
 }
 
 function updateBadge(results, tabId) {
@@ -295,87 +295,6 @@ function performRegexMatching(chunk, patterns, patternType) {
     }
   } catch (e) { console.error(`${patternType} 匹配出错:`, e); }
   return matches;
-}
-
-// ========== Site Analysis ==========
-let analysisPending = false;
-
-function getRootDomain(domain) {
-  const specialTlds = ['com.cn', 'edu.cn', 'gov.cn', 'org.cn', 'net.cn', 'co.jp', 'co.uk', 'co.kr', 'com.hk'];
-  const parts = domain.split('.');
-  if (parts.length <= 2) return domain;
-  for (const tld of specialTlds) {
-    if (domain.endsWith(`.${tld}`)) return parts.slice(-(tld.split('.').length + 1)).join('.');
-  }
-  return parts.slice(-2).join('.');
-}
-
-function isPrivateIP(domain) {
-  const ipv4Pattern = /^\d{1,3}(\.\d{1,3}){3}$/;
-  if (ipv4Pattern.test(domain)) {
-    const parts = domain.split('.');
-    const first = parseInt(parts[0]), second = parseInt(parts[1]);
-    return first === 10 || (first === 172 && second >= 16 && second <= 31) ||
-      (first === 192 && second === 168) || domain === '127.0.0.1';
-  }
-  return false;
-}
-
-async function fetchWithCache(url) {
-  const response = await fetch(url);
-  if (!response.ok) throw new Error(`HTTP ${response.status}`);
-  return await response.json();
-}
-
-async function fetchDomainWeight(domain) {
-  try {
-    const data = await fetchWithCache(`https://api.mir6.com/api/bdqz?myKey=84fbd322b048f19626e861932ec7d572&domain=${domain}&type=json`);
-    return { data };
-  } catch (e) { return null; }
-}
-
-async function fetchIpInfo(domain) {
-  try {
-    const data = await fetchWithCache(`https://api.mir6.com/api/ip_json?myKey=7f5860bc55587662c37cf678a7871ad0&ip=${domain}`);
-    return { data };
-  } catch (e) { return null; }
-}
-
-async function fetchIcpInfo(domain) {
-  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(domain)) {
-    return { data: { icp: 'IP地址不适用', unit: 'IP地址不适用', time: 'IP地址不适用' } };
-  }
-  try {
-    const data = await fetchWithCache(`https://cn.apihz.cn/api/wangzhan/icp.php?id=88888888&key=88888888&domain=${domain}`);
-    if (data?.code === 404) return { data: { icp: '未查询到备案信息', unit: '未知', time: '未知' } };
-    return { data };
-  } catch (e) { return null; }
-}
-
-function getAnalysisFromStorage(tabId) {
-  return new Promise(resolve => {
-    const key = `analysis_${tabId}`;
-    chrome.storage.session.get(key, res => {
-      const cache = res[key];
-      if (!cache) return resolve({ weight: null, ip: null, icp: null, isComplete: false });
-      resolve({
-        weight: cache.weight?.data || null,
-        ip: cache.ip?.data || null,
-        icp: cache.icp?.data || null,
-        isComplete: !!(cache.weight && cache.ip && cache.icp)
-      });
-    });
-  });
-}
-
-function saveAnalysisToStorage(tabId, weight, ip, icp) {
-  chrome.storage.session.set({
-    [`analysis_${tabId}`]: {
-      weight: weight ? { data: weight.data } : null,
-      ip: ip ? { data: ip.data } : null,
-      icp: icp ? { data: icp.data } : null
-    }
-  });
 }
 
 // ========== Session helpers ==========
@@ -759,32 +678,6 @@ chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
       sendResponse({ matches });
       return true;
     }
-    case 'GET_SITE_ANALYSIS': {
-      const domain = getRootDomain(msg.domain);
-      const fullDomain = msg.domain;
-      const analysisTabId = msg.tabId;
-      if (analysisPending) return true;
-      analysisPending = true;
-      if (isPrivateIP(domain)) {
-        analysisPending = false;
-        sendResponse({ weight: null, ip: null, icp: null, isComplete: true, isPrivateIP: true });
-        return true;
-      }
-      getAnalysisFromStorage(analysisTabId).then(cachedData => {
-        if (cachedData.isComplete) { analysisPending = false; sendResponse(cachedData); return; }
-        Promise.all([
-          cachedData.weight || fetchDomainWeight(domain, analysisTabId),
-          cachedData.ip || fetchIpInfo(fullDomain, analysisTabId),
-          cachedData.icp || fetchIcpInfo(domain, analysisTabId)
-        ]).then(([weightData, ipData, icpData]) => {
-          analysisPending = false;
-          saveAnalysisToStorage(analysisTabId, weightData, ipData, icpData);
-          sendResponse({ weight: weightData?.data || null, ip: ipData?.data || null, icp: icpData?.data || null, isComplete: true, isPrivateIP: false });
-        }).catch(error => { analysisPending = false; console.error('分析请求失败:', error); sendResponse(null); });
-      });
-      return true;
-    }
-
     // Spring scanning
     case 'SPRING_SCAN_CANCEL': {
       var cancelTabId = msg.tabId != null ? msg.tabId : tabId;

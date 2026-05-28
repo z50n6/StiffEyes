@@ -10,16 +10,6 @@ var activeCloudBucketId = null;
 
 const $ = (id) => document.getElementById(id);
 
-// 网站解析 - 搜索引擎列表
-var searchEngines = [
-  { id: 'baidupc', name: '百度PC' },
-  { id: 'google', name: 'Google' },
-  { id: '360', name: '360搜索' },
-  { id: 'baidum', name: '百度移动' },
-  { id: 'sougou', name: '搜狗' },
-  { id: 'shenma', name: '神马' }
-];
-
 function springStorageKey(tabId) {
   return 'springScan_' + tabId;
 }
@@ -418,143 +408,6 @@ async function loadResults() {
   }
 }
 
-// ========== 网站解析 (Site Analysis) ==========
-function initAnalysisPage() {
-  var container = document.querySelector('.analysis-section');
-  if (!container) return;
-  container.innerHTML = '<div class="loading" style="padding:40px;text-align:center;color:var(--text-muted);">正在获取网站信息...</div>';
-
-  var timeoutId = null;
-
-  getCurrentTab().then(function (tab) {
-    if (!tab) {
-      container.innerHTML = '<div class="error" style="padding:40px;text-align:center;color:var(--text-muted);">无法获取标签页</div>';
-      return;
-    }
-    var domain;
-    try { domain = new URL(tab.url).hostname; } catch (e) { domain = tab.url; }
-    timeoutId = setTimeout(function () {
-      container.innerHTML = '<div class="error" style="padding:40px;text-align:center;color:var(--text-muted);">请求超时，请重试</div>';
-    }, 10000);
-
-    chrome.runtime.sendMessage({
-      type: 'GET_SITE_ANALYSIS',
-      domain: domain,
-      tabId: tab.id,
-      from: 'popup',
-      to: 'background'
-    }, function (response) {
-      clearTimeout(timeoutId);
-      if (!response) {
-        container.innerHTML = '<div class="error" style="padding:40px;text-align:center;color:var(--text-muted);">获取网站信息失败</div>';
-        return;
-      }
-      if (response.isPrivateIP) {
-        container.innerHTML = '<div class="notice" style="padding:40px;text-align:center;">内网地址无需解析</div>';
-        return;
-      }
-      updateAnalysisPage(response, domain);
-    });
-  });
-
-  return function cleanup() {
-    if (timeoutId) clearTimeout(timeoutId);
-  };
-}
-
-function updateAnalysisPage(data, domain) {
-  var container = document.querySelector('.analysis-section');
-  if (!container) return;
-  var icpData = data.icp || {};
-
-  container.innerHTML =
-    '<div class="analysis-group basic-group">' +
-      '<h3 style="padding:12px 16px 8px;font-size:13px;font-weight:600;color:var(--text);">基本信息</h3>' +
-      '<div class="basic-info" style="padding:0 16px 12px;">' +
-        '<div class="info-item" style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px;"><span class="info-label" style="color:var(--text-muted);">域名</span><span class="info-value" style="font-family:var(--mono);">' + (icpData.domain || domain) + '</span></div>' +
-        '<div class="info-item" style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px;"><span class="info-label" style="color:var(--text-muted);">备案号</span><span class="info-value" style="font-family:var(--mono);">' + (icpData.icp || '暂无备案信息') + '</span></div>' +
-        '<div class="info-item" style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px;"><span class="info-label" style="color:var(--text-muted);">主办单位</span><span class="info-value">' + (icpData.unit || '未知') + '</span></div>' +
-        '<div class="info-item" style="display:flex;justify-content:space-between;padding:6px 0;font-size:12px;"><span class="info-label" style="color:var(--text-muted);">备案时间</span><span class="info-value">' + (icpData.time || '未知') + '</span></div>' +
-      '</div>' +
-    '</div>' +
-    '<div class="analysis-group weight-group">' +
-      '<h3 style="padding:12px 16px 8px;font-size:13px;font-weight:600;color:var(--text);">搜索引擎权重</h3>' +
-      '<div class="weight-grid" style="padding:0 16px 12px;display:grid;grid-template-columns:repeat(3,1fr);gap:8px;"></div>' +
-    '</div>' +
-    '<div class="analysis-group ip-group">' +
-      '<h3 style="padding:12px 16px 8px;font-size:13px;font-weight:600;color:var(--text);">IP信息</h3>' +
-      '<div class="ip-info" style="padding:0 16px 12px;"></div>' +
-    '</div>';
-
-  if (data.weight) updateWeightInfo(data.weight);
-  if (data.ip) updateIpInfo(data.ip);
-}
-
-function updateWeightInfo(weightData) {
-  var container = document.querySelector('.weight-grid');
-  if (!container) return;
-
-  if (weightData?.error) {
-    container.textContent = weightData.error;
-    return;
-  }
-
-  searchEngines.forEach(function (engine) {
-    var el = document.createElement('div');
-    el.className = 'weight-item';
-    el.style.cssText = 'text-align:center;padding:8px 4px;background:var(--bg-muted);border-radius:var(--radius-sm);';
-
-    var rawValue = weightData[engine.id] || 'n';
-    var displayValue = rawValue === 'n' ? '-' : rawValue;
-
-    var img = document.createElement('img');
-    img.className = 'weight-img';
-    img.style.cssText = 'width:32px;height:32px;display:block;margin:0 auto 4px;';
-    img.dataset.engine = engine.id;
-    img.alt = engine.name;
-    img.src = 'https://api.mir6.com/data/quanzhong_img/' + engine.id + '/' + rawValue + '.png';
-    img.onerror = function () {
-      img.src = 'https://api.mir6.com/data/quanzhong_img/' + engine.id + '/0.png';
-    };
-
-    var label = document.createElement('span');
-    label.style.cssText = 'display:block;font-size:10px;color:var(--text-muted);margin-top:2px;';
-    label.textContent = engine.name;
-
-    var valueSpan = document.createElement('span');
-    valueSpan.style.cssText = 'display:block;font-size:11px;font-weight:600;color:var(--text);';
-    valueSpan.textContent = displayValue;
-
-    el.appendChild(img);
-    el.appendChild(valueSpan);
-    el.appendChild(label);
-    container.appendChild(el);
-  });
-}
-
-function updateIpInfo(ipData) {
-  var container = document.querySelector('.ip-info');
-  if (!container) return;
-  var data = ipData || {};
-  var items = [
-    { label: 'IPv4/6', value: data.ip || '无' },
-    { label: '地理位置', value: data.location || '无' },
-    { label: '邮政编码', value: data.zipcode || '无' },
-    { label: '运营商', value: data.isp || '无' },
-    { label: '协议', value: data.protocol || '无' },
-    { label: '网络类型', value: data.net || '无' }
-  ];
-  items.forEach(function (item) {
-    var div = document.createElement('div');
-    div.className = 'info-item';
-    div.style.cssText = 'display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px;';
-    div.innerHTML = '<span class="info-label" style="color:var(--text-muted);">' + item.label + '</span><span class="info-value" style="font-family:var(--mono);">' + item.value + '</span>';
-    container.appendChild(div);
-  });
-}
-
-var analysisCleanup = null;
-
 // ========== Cloud Bucket Panel ==========
 function renderCloudBucketList() {
   var el = $('listCloudBuckets');
@@ -741,10 +594,6 @@ document.querySelectorAll('#mainTabs .tab').forEach((btn) => {
     if (btn.dataset.panel === 'panel-webpack' && window.StiffEyesWebpackPanel && currentTabId) {
       window.StiffEyesWebpackPanel.init(currentTabId);
       window.StiffEyesWebpackPanel.autoExtractIfNeeded();
-    }
-    if (btn.dataset.panel === 'panel-analysis' && currentTabId) {
-      if (analysisCleanup) analysisCleanup();
-      analysisCleanup = initAnalysisPage();
     }
     if (btn.dataset.panel === 'panel-cloud') {
       initCloudPanel();
