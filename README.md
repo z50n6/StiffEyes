@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  Chrome 扩展 — 页面资产梳理 · 技术指纹识别 · Spring 端点探测 · Webpack 映射分析 · 云存储 Bucket 发现与漏洞检测<br/>
+  Chrome 扩展 — 页面资产梳理 · 技术指纹识别 · Spring 端点探测 · Webpack 映射分析 · 云存储 Bucket 发现与漏洞检测 · Payload 字典<br/>
   <strong>仅限授权安全测试与开发自检</strong>
 </p>
 
@@ -22,7 +22,9 @@
 
 `域名` `API 绝对路径` `API 相对路径` `模块路径` `文档` `账密` `Cookie` `密钥` `手机号` `邮箱` `身份证` `IP` `公司名` `JWT` `图片` `GitHub` `Vue/JS` `URL` `AJAX 路由` `输入框`
 
-深度模式自动拉取外链 JS，递归提取接口与路径。支持**域名黑名单**、**三方 JS 过滤**、**动态重扫**、**全局搜索**，扫描结果一键复制 / 复制 URL。
+深度模式自动拉取外链 JS，递归提取接口与路径。支持**域名黑名单**、**三方 JS 过滤**、**动态重扫**，扫描结果一键复制 / 复制 URL。
+
+![image-20260528175848637](imgs/image-20260528175848637.png)
 
 ### 指纹
 响应头与页面 DOM 双重检测，识别技术栈组件：服务器、Web 框架、CDN、分析统计、前端 UI 库、安全产品等。命中项按类型着色。
@@ -52,8 +54,24 @@
 
 结果按严重程度着色：`严重`（桶接管/公开写）`高危`（遍历/ACL 读/PUT）`中危`（DELETE 允许）。
 
----
+### Payload
+内置实战攻击链场景，覆盖 13 个类别 50+ 场景，每个场景拆分为可复制的分步命令：
 
+| 类别 | 覆盖范围 |
+|------|----------|
+| SQL 注入 | MySQL / PostgreSQL / MSSQL / Oracle — UNION、盲注、堆叠、认证绕过、文件读写 |
+| XSS | 反射、DOM、绕过、Cookie 窃取、BeEF 钩子、键盘记录、Polyglot/mXSS |
+| SSTI | Jinja2、FreeMarker、Twig、Smarty、ERB、Spring/Thymeleaf、Pug/Jade、Mako |
+| SSRF | AWS/GCP/Azure 云元数据、Redis 内网利用、DNS 重绑定、IP 绕过 |
+| XXE | 经典文件读取、OOB 外带、XInclude、报错型泄露、CDATA 包装 |
+| FastJson | 检测/版本探测、JNDI 注入、AutoType 绕过、BCEL 字节码、TemplatesImpl |
+| 其他 | 命令注入、LFI、路径遍历、JWT、文件上传、反序列化、Log4j、Clickjacking |
+
+支持**按分类/子分类筛选**、**关键词搜索**、**编码变换**（URL/Base64/Hex/Unicode/大小写混淆等 12 种），一键复制 payload。
+
+![image-20260528175905043](imgs/image-20260528175905043.png)
+
+---
 ## 安装
 
 **环境要求**：Chrome 88+（Manifest V3）
@@ -87,7 +105,8 @@ StiffEyes/
 │   ├── cloud-bucket-rules.js   # 云存储被动发现规则
 │   ├── cloud-bucket-vuln.js    # 云存储主动漏洞扫描
 │   ├── webpack-scan-rules.js   # Webpack 匹配规则
-│   └── webpack-core.js         # Webpack 核心逻辑
+│   ├── webpack-core.js         # Webpack 核心逻辑
+│   └── payloads.js             # Payload 字典（50+ 攻击链场景 + 变换引擎）
 ├── content/
 │   └── webpack-collector.js    # Webpack 内容脚本
 ├── popup/                      # 弹窗 UI（popup.html/css/js）
