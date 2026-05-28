@@ -18,6 +18,7 @@
         </div>
       </div>
       <p class="host" id="currentHost" title="当前页面">—</p>
+      <span class="progress-badge hidden" id="headerProgressBadge" title="扫描进度">—</span>
       <button type="button" class="btn btn-header" id="btnSettings" title="打开设置">设置</button>
     </div>
   </header>
@@ -25,12 +26,17 @@
   <nav class="tabs" id="mainTabs" role="tablist">
     <button type="button" class="tab active" data-panel="panel-scan" role="tab">信息收集</button>
     <button type="button" class="tab" data-panel="panel-finger" role="tab">指纹</button>
+    <button type="button" class="tab" data-panel="panel-analysis" role="tab">网站解析</button>
     <button type="button" class="tab" data-panel="panel-spring" role="tab">Spring探测</button>
     <button type="button" class="tab" data-panel="panel-webpack" role="tab">Webpack</button>
+    <button type="button" class="tab" data-panel="panel-cloud" role="tab">云存储</button>
   </nav>
 
   <main>
     <section id="panel-scan" class="panel active">
+      <div class="scan-search-wrap">
+        <input type="text" class="scan-search" id="scanSearch" placeholder="搜索所有分类…" autocomplete="off" />
+      </div>
       <div class="scan-layout">
         <nav class="scan-sidebar" id="scanSubtabs" aria-label="信息分类"></nav>
         <div class="scan-content">
@@ -42,6 +48,10 @@
 
     <section id="panel-finger" class="panel">
       <ul class="list" id="listFinger"></ul>
+    </section>
+
+    <section id="panel-analysis" class="panel">
+      <div class="analysis-section"></div>
     </section>
 
     <section id="panel-spring" class="panel">
@@ -122,6 +132,39 @@
         </div>
         <ul class="list wp-results" id="wpChunkResults"></ul>
         <p class="notice wp-status-msg hidden" id="wpChunkStatusMsg"></p>
+      </div>
+    </section>
+
+    <section id="panel-cloud" class="panel">
+      <div class="toolbar toolbar-stack">
+        <div class="toolbar-row">
+          <button type="button" class="btn btn-accent" id="btnCloudScanAll">扫描全部</button>
+          <button type="button" class="btn" id="btnCloudClear">清除全部</button>
+        </div>
+        <div class="progress-wrap hidden" id="cloudProgressWrap">
+          <div class="progress-track">
+            <div class="progress-fill" id="cloudProgressFill"></div>
+          </div>
+          <span class="progress-label" id="cloudProgressText">就绪</span>
+        </div>
+        <p class="notice">被动发现云存储 Bucket，扫描进行漏洞检测。仅限授权测试。</p>
+      </div>
+      <div class="cloud-layout">
+        <div class="cloud-sidebar">
+          <ul class="list" id="listCloudBuckets"></ul>
+        </div>
+        <div class="cloud-detail">
+          <div class="panel-head">
+            <h3 class="panel-title" id="cloudDetailTitle">选择 Bucket</h3>
+            <span class="panel-meta" id="cloudDetailMeta"></span>
+          </div>
+          <div class="toolbar" id="cloudDetailToolbar">
+            <button type="button" class="btn btn-sm btn-accent" id="btnCloudScanOne">扫描此 Bucket</button>
+            <button type="button" class="btn btn-sm" id="btnCloudDeleteOne">删除</button>
+            <button type="button" class="btn btn-sm" id="btnCloudOpenUrl">打开</button>
+          </div>
+          <ul class="list" id="listCloudScanResults"></ul>
+        </div>
       </div>
     </section>
 

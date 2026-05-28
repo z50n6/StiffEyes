@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "绷着脸",
   "short_name": "绷着脸",
-  "version": "1.0.10",
+  "version": "1.0.11",
   "description": "绷着脸 StiffEyes：页面资产梳理、技术指纹、Spring 探测、Webpack 映射。仅限授权安全测试。",
   "icons": {
     "16": "icons/icon16.png",
@@ -15,9 +15,15 @@
     "storage",
     "tabs",
     "webRequest",
-    "downloads"
+    "webNavigation",
+    "downloads",
+    "cookies"
   ],
-  "host_permissions": ["<all_urls>"],
+  "host_permissions": [
+    "<all_urls>",
+    "https://api.mir6.com/*",
+    "https://cn.apihz.cn/*"
+  ],
   "background": {
     "service_worker": "background.js"
   },
@@ -25,12 +31,13 @@
     {
       "matches": ["<all_urls>"],
       "js": [
+        "lib/logger.js",
         "lib/scan-config.js",
         "lib/scan-filter.js",
         "lib/scan-engine.js",
         "content/webpack-collector.js"
       ],
-      "run_at": "document_idle"
+      "run_at": "document_end"
     }
   ],
   "action": {
