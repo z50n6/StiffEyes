@@ -7,6 +7,9 @@ var activeScanTabId = 'domains';
 var scanUiBuilt = false;
 var cloudBuckets = [];
 var activeCloudBucketId = null;
+var activePayloadCatId = null;
+var activePayloadSub = null;
+var activeTransformId = null;
 
 const $ = (id) => document.getElementById(id);
 
@@ -549,6 +552,282 @@ function initCloudPanel() {
   }
 }
 
+// ========== Payload Panel ==========
+function renderPayloadCatList() {
+  var el = $('listPayloadCats');
+  if (!el) return;
+  el.innerHTML = '';
+  var cats = StiffEyesPayloads.CATEGORIES;
+  var allLi = document.createElement('li');
+  allLi.innerHTML = '<span class="payload-cat-icon">📋</span>全部';
+  if (!activePayloadCatId) allLi.classList.add('active');
+  allLi.addEventListener('click', function () {
+    activePayloadCatId = null;
+    activePayloadSub = null;
+    selectPayloadCat(null);
+  });
+  el.appendChild(allLi);
+
+  cats.forEach(function (cat) {
+    var li = document.createElement('li');
+    li.innerHTML = '<span class="payload-cat-icon">' + cat.icon + '</span>' + cat.label;
+    li.title = cat.label;
+    if (activePayloadCatId === cat.id) li.classList.add('active');
+    li.addEventListener('click', function () {
+      activePayloadCatId = cat.id;
+      activePayloadSub = null;
+      selectPayloadCat(cat.id);
+    });
+    el.appendChild(li);
+  });
+}
+
+function selectPayloadCat(catId) {
+  renderPayloadCatList();
+  var catLabel = catId ? StiffEyesPayloads.getCategoryLabel(catId) : '全部类别';
+  $('payloadCatTitle').textContent = catLabel;
+  renderPayloadSubtags(catId);
+  renderScenarioList(catId, activePayloadSub);
+}
+
+var payloadFilterVisible = false;
+
+function renderPayloadSubtags(catId) {
+  var el = $('payloadSubtags');
+  var toggleBtn = $('btnPayloadFilter');
+  if (!el) return;
+  el.innerHTML = '';
+  var subs = StiffEyesPayloads.getSubcategories(catId);
+  if (subs.length <= 1) {
+    el.classList.add('hidden');
+    if (toggleBtn) toggleBtn.classList.add('hidden');
+    return;
+  }
+  if (toggleBtn) {
+    toggleBtn.classList.remove('hidden');
+    toggleBtn.classList.toggle('active', payloadFilterVisible);
+    toggleBtn.textContent = payloadFilterVisible ? '筛选 ▴' : '筛选 ▾';
+    toggleBtn.onclick = function () {
+      payloadFilterVisible = !payloadFilterVisible;
+      renderPayloadSubtags(catId);
+      el.classList.toggle('hidden', !payloadFilterVisible);
+      if (payloadFilterVisible) el.style.display = 'flex';
+    };
+  }
+  if (!payloadFilterVisible) { el.classList.add('hidden'); return; }
+  el.classList.remove('hidden');
+  el.style.display = 'flex';
+
+  var allBtn = document.createElement('button');
+  allBtn.type = 'button';
+  allBtn.className = 'payload-subtag' + (!activePayloadSub ? ' active' : '');
+  allBtn.textContent = '全部';
+  allBtn.addEventListener('click', function () {
+    activePayloadSub = null;
+    renderPayloadSubtags(catId);
+    renderScenarioList(catId, null);
+  });
+  el.appendChild(allBtn);
+  subs.forEach(function (sub) {
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'payload-subtag' + (activePayloadSub === sub ? ' active' : '');
+    btn.textContent = sub;
+    btn.addEventListener('click', function () {
+      activePayloadSub = sub;
+      renderPayloadSubtags(catId);
+      renderScenarioList(catId, sub);
+    });
+    el.appendChild(btn);
+  });
+}
+
+function renderScenarioList(catId, sub) {
+  var el = $('listPayloads');
+  if (!el) return;
+  el.innerHTML = '';
+
+  var scenarios = catId ? StiffEyesPayloads.getByCategory(catId) : StiffEyesPayloads.SCENARIOS;
+  if (sub) {
+    scenarios = scenarios.filter(function (s) { return s.sub === sub; });
+  }
+  var flatItems = StiffEyesPayloads.flattenScenarios(scenarios);
+
+  var meta = flatItems.length + ' 条';
+  if (sub) meta = '[' + sub + '] ' + meta;
+  $('payloadCatMeta').textContent = meta;
+
+  if (!flatItems.length) {
+    el.innerHTML = '<li class="empty">暂无 payload</li>';
+    return;
+  }
+
+  flatItems.forEach(function (item) {
+    var li = document.createElement('li');
+    li.className = 'payload-item';
+    li.title = item.scenarioTitle + ' — ' + item.title + '\n' + (item.desc || '');
+
+    // DB tag
+    var dbTagHtml = item.db ? '<span class="db-tag db-' + item.db + '">' + dbLabel(item.db) + '</span>' : '';
+    // Bypass tag
+    var bypassTagHtml = item.isBypass ? '<span class="bypass-tag">Bypass</span>' : '';
+
+    li.innerHTML = dbTagHtml + bypassTagHtml +
+      '<code class="payload-cmd">' + escapeHTML(item.cmd) + '</code>' +
+      '<span class="payload-meta"><span class="payload-context">' + escapeHTML(item.sub) + '</span>' +
+      '<span class="payload-copy-icon" title="复制">📋</span></span>';
+
+    li.querySelector('.payload-copy-icon').addEventListener('click', function (e) {
+      e.stopPropagation();
+      navigator.clipboard.writeText(item.cmd);
+    });
+    li.addEventListener('click', function () {
+      $('payloadInput').value = item.cmd;
+      activeTransformId = null;
+      renderTransformBtns();
+      applyAndShowTransform();
+    });
+    el.appendChild(li);
+  });
+}
+
+function dbLabel(db) {
+  switch (db) {
+    case 'mysql': return 'MySQL';
+    case 'postgresql': return 'PostgreSQL';
+    case 'mssql': return 'MSSQL';
+    case 'oracle': return 'Oracle';
+    default: return db;
+  }
+}
+
+function renderTransformBtns() {
+  var el = $('payloadTransformBtns');
+  if (!el) return;
+  el.innerHTML = '';
+  StiffEyesPayloads.TRANSFORMS.forEach(function (t) {
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'payload-transform-btn' + (activeTransformId === t.id ? ' active' : '');
+    btn.textContent = t.label;
+    btn.addEventListener('click', function () {
+      activeTransformId = activeTransformId === t.id ? null : t.id;
+      renderTransformBtns();
+      applyAndShowTransform();
+    });
+    el.appendChild(btn);
+  });
+}
+
+function applyAndShowTransform() {
+  var input = ($('payloadInput').value || '').trim();
+  var outputEl = $('payloadTransformOutput');
+  if (!outputEl) return;
+  if (!input) {
+    outputEl.innerHTML = '<span style="color:var(--text-faint)">选择一条 payload 或输入原文</span>';
+    return;
+  }
+  if (!activeTransformId) {
+    outputEl.innerHTML = '<span class="payload-output-text" style="color:var(--text-muted)">' + escapeHTML(input) + '</span><button class="payload-output-copy" id="btnPayloadOutputCopy">复制</button>';
+    bindOutputCopy();
+    return;
+  }
+  var result = StiffEyesPayloads.applyTransform(input, activeTransformId);
+  outputEl.innerHTML = '<span class="payload-output-text">' + escapeHTML(result) + '</span><button class="payload-output-copy" id="btnPayloadOutputCopy">复制</button>';
+  bindOutputCopy();
+}
+
+function bindOutputCopy() {
+  var btn = $('btnPayloadOutputCopy');
+  if (btn) {
+    btn.onclick = function () {
+      var text = document.querySelector('.payload-output-text');
+      if (text) navigator.clipboard.writeText(text.textContent);
+    };
+  }
+}
+
+function escapeHTML(str) {
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function initPayloadPanel() {
+  activePayloadCatId = null;
+  activePayloadSub = null;
+  activeTransformId = null;
+  renderPayloadCatList();
+  renderTransformBtns();
+  selectPayloadCat(null);
+
+  $('payloadInput').addEventListener('input', function () {
+    activeTransformId = null;
+    renderTransformBtns();
+    applyAndShowTransform();
+  });
+
+  $('btnPayloadCopy').onclick = function () {
+    var val = $('payloadInput').value.trim();
+    if (val) navigator.clipboard.writeText(val);
+  };
+
+  // Transform toggle
+  var transformWrap = $('payloadTransform');
+  var transformToggle = $('payloadTransformToggle');
+  var transformBody = $('payloadTransformBody');
+  var transformExpanded = false;
+  transformToggle.addEventListener('click', function () {
+    transformExpanded = !transformExpanded;
+    transformBody.classList.toggle('hidden', !transformExpanded);
+    transformWrap.classList.toggle('expanded', transformExpanded);
+    transformToggle.querySelector('.transform-toggle-hint').textContent = transformExpanded ? '点击折叠' : '点击展开';
+    if (transformExpanded) {
+      renderTransformBtns();
+      applyAndShowTransform();
+    }
+  });
+
+  $('payloadSearch').addEventListener('input', function () {
+    var q = this.value;
+    if (!q.trim()) {
+      selectPayloadCat(activePayloadCatId);
+      return;
+    }
+    var results = StiffEyesPayloads.search(q);
+    var flatItems = StiffEyesPayloads.flattenScenarios(results);
+    $('payloadCatTitle').textContent = '搜索: ' + q;
+    $('payloadCatMeta').textContent = flatItems.length + ' 条';
+    $('payloadSubtags').style.display = 'none';
+    var el = $('listPayloads');
+    el.innerHTML = '';
+    if (!flatItems.length) {
+      el.innerHTML = '<li class="empty">无匹配 payload</li>';
+      return;
+    }
+    flatItems.forEach(function (item) {
+      var li = document.createElement('li');
+      li.className = 'payload-item';
+      li.title = item.scenarioTitle + ' — ' + item.title;
+      var dbTagHtml = item.db ? '<span class="db-tag db-' + item.db + '">' + dbLabel(item.db) + '</span>' : '';
+      var bypassTagHtml = item.isBypass ? '<span class="bypass-tag">Bypass</span>' : '';
+      li.innerHTML = dbTagHtml + bypassTagHtml +
+        '<code class="payload-cmd">' + escapeHTML(item.cmd) + '</code>' +
+        '<span class="payload-meta"><span class="payload-context">' + escapeHTML(item.sub) + '</span>' +
+        '<span class="payload-copy-icon" title="复制">📋</span></span>';
+      li.querySelector('.payload-copy-icon').addEventListener('click', function (e) {
+        e.stopPropagation();
+        navigator.clipboard.writeText(item.cmd);
+      });
+      li.addEventListener('click', function () {
+        $('payloadInput').value = item.cmd;
+        activeTransformId = null;
+        renderTransformBtns();
+        applyAndShowTransform();
+      });
+      el.appendChild(li);
+    });
+  });
+}
+
 async function init() {
   buildScanUi();
   const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -597,6 +876,9 @@ document.querySelectorAll('#mainTabs .tab').forEach((btn) => {
     }
     if (btn.dataset.panel === 'panel-cloud') {
       initCloudPanel();
+    }
+    if (btn.dataset.panel === 'panel-payload') {
+      initPayloadPanel();
     }
   });
 });

@@ -29,6 +29,7 @@
     <button type="button" class="tab" data-panel="panel-spring" role="tab">Spring探测</button>
     <button type="button" class="tab" data-panel="panel-webpack" role="tab">Webpack</button>
     <button type="button" class="tab" data-panel="panel-cloud" role="tab">云存储</button>
+    <button type="button" class="tab" data-panel="panel-payload" role="tab">Payload</button>
   </nav>
 
   <main>
@@ -163,6 +164,41 @@
       </div>
     </section>
 
+    <section id="panel-payload" class="panel">
+      <div class="payload-search-wrap">
+        <input type="text" class="payload-search" id="payloadSearch" placeholder="搜索 payload…" autocomplete="off" />
+      </div>
+      <div class="payload-layout">
+        <div class="payload-sidebar">
+          <ul class="list" id="listPayloadCats"></ul>
+        </div>
+        <div class="payload-detail">
+          <div class="panel-head">
+            <h3 class="panel-title" id="payloadCatTitle">全部类别</h3>
+            <span class="panel-meta" id="payloadCatMeta"></span>
+            <button type="button" class="payload-filter-toggle" id="btnPayloadFilter" title="子分类筛选">筛选 ▾</button>
+          </div>
+          <div class="payload-subtags hidden" id="payloadSubtags"></div>
+          <ul class="list payload-list" id="listPayloads"></ul>
+          <div class="payload-transform" id="payloadTransform">
+            <div class="payload-transform-toggle" id="payloadTransformToggle">
+              <span class="transform-toggle-icon">▸</span>
+              <span>编码变换</span>
+              <span class="transform-toggle-hint">点击展开</span>
+            </div>
+            <div class="payload-transform-body hidden" id="payloadTransformBody">
+              <div class="payload-transform-input">
+                <input type="text" class="payload-input" id="payloadInput" placeholder="选择一条 payload 或直接输入…" />
+                <button type="button" class="btn btn-sm" id="btnPayloadCopy">复制原文</button>
+              </div>
+              <div class="payload-transform-btns" id="payloadTransformBtns"></div>
+              <div class="payload-transform-output" id="payloadTransformOutput"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
   </main>
 
   <footer class="footer" id="appFooter">
@@ -171,6 +207,7 @@
   </div>
   <script src="../lib/spring-paths.js"></script>
   <script src="../lib/patterns.js"></script>
+  <script src="../lib/payloads.js"></script>
   <script src="../lib/webpack-scan-rules.js"></script>
   <script src="../lib/webpack-core.js"></script>
   <script src="webpack-panel.js"></script>
