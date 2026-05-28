@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "绷着脸",
   "short_name": "绷着脸",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "绷着脸 StiffEyes：页面资产梳理、技术指纹、Spring 探测、Webpack 映射、云存储 Bucket 发现与漏洞检测。仅限授权安全测试。",
   "icons": {
     "16": "icons/icon16.png",
