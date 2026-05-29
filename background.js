@@ -170,7 +170,7 @@ function updateBadge(results, tabId) {
   const fields = [
     'domains', 'absoluteApis', 'apis', 'moduleFiles', 'docFiles', 'ips', 'phones',
     'emails', 'idcards', 'jwts', 'imageFiles', 'jsFiles', 'vueFiles', 'urls',
-    'githubUrls', 'companies', 'credentials', 'cookies', 'idKeys'
+    'githubUrls', 'companies', 'credentials', 'cookies', 'idKeys', 'secrets'
   ];
   const count = fields.reduce((acc, field) => {
     const arr = results[field];
@@ -432,7 +432,7 @@ function performRegexMatching(chunk, patterns, patternType) {
   let maxIterations = 10000;
   try {
     for (const patternInfo of patterns) {
-      const { pattern: patternString } = patternInfo;
+      const { pattern: patternString, name: patternName } = patternInfo;
       let regex;
       try {
         const match = patternString.match(/^\/(.+)\/([gimuy]*)$/);
@@ -444,7 +444,7 @@ function performRegexMatching(chunk, patterns, patternType) {
         if (regex.lastIndex <= patternLastIndex) break;
         patternLastIndex = regex.lastIndex;
         if (--maxIterations <= 0) break;
-        matches.push({ match: match[0] });
+        matches.push({ match: match[0], name: patternName || '' });
       }
       regex.lastIndex = 0;
     }
