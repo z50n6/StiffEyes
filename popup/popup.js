@@ -1,8 +1,8 @@
 var SCAN_TABS = StiffEyesPatterns.SCAN_TABS;
 
 var currentTabId = null;
+var currentTabUrl = '';
 var currentScan = null;
-var currentFinger = [];
 var activeScanTabId = 'domains';
 var scanUiBuilt = false;
 var cloudBuckets = [];
@@ -271,7 +271,6 @@ function renderScan(data) {
       var badge = document.querySelector(`[data-count-for="${tab.id}"]`);
       if (badge) badge.textContent = '0';
     });
-    renderList($('listFinger'), [], '暂无指纹，请刷新页面后重试');
     return;
   }
 
@@ -296,40 +295,6 @@ function renderScan(data) {
     if (meta) meta.textContent = items.length + ' 条';
   });
 
-  var scanFingers = currentScan.fingers || currentScan.fingerprints || [];
-  if (scanFingers.length && Array.isArray(scanFingers[0])) {
-    scanFingers = scanFingers.map(function (e) {
-      return { name: e[0], type: 'builder', source: e[1] || '页面', detail: '' };
-    });
-  } else if (scanFingers.length && typeof scanFingers[0] === 'string') {
-    scanFingers = scanFingers.map(function (name) {
-      return { name: name, type: 'builder', source: '页面', detail: '' };
-    });
-  }
-  var fingers = [
-    ...scanFingers,
-    ...currentFinger.filter(
-      (f) =>
-        !(currentScan.fingerprints || []).some(
-          (x) => x.type === f.type && x.name === f.name && x.source === f.source
-        )
-    )
-  ];
-  renderList(
-    $('listFinger'),
-    fingers.map((f) => {
-      const typeLabel =
-        f.type === 'analytics'
-          ? '统计'
-          : f.type === 'security'
-            ? '安全'
-            : f.type === 'server'
-              ? '服务器'
-              : f.type;
-      return `[${typeLabel}] ${f.name} — ${f.source}${f.detail ? ': ' + f.detail : ''}`;
-    }),
-    '暂无指纹，请刷新页面后重试'
-  );
 }
 
 async function loadResults() {
@@ -338,7 +303,6 @@ async function loadResults() {
     type: 'GET_SCAN_RESULTS',
     tabId: currentTabId
   });
-  currentFinger = res?.fingerprints || [];
   if (res?.scan) {
     StiffEyesPatterns.normalizeScanResult(res.scan);
   }
@@ -781,6 +745,398 @@ function initPayloadPanel() {
   });
 }
 
+// ========== Sniff / Fingerprint Engine ==========
+var sniffState = {
+  findings: [],
+  running: false,
+  loaded: false,
+  cache: {},
+  compiledStore: null,
+  storeLoading: false,
+  storePromise: null
+};
+
+function sniffCacheKey(tabId, url) {
+  return 'sniff_' + tabId + '_' + (url ? simpleHash(url) : '');
+}
+
+function simpleHash(s) {
+  var h = 0;
+  for (var i = 0; i < s.length; i++) {
+    h = ((h << 5) - h) + s.charCodeAt(i);
+    h |= 0;
+  }
+  return h.toString(36);
+}
+
+function ensureCompiledStore() {
+  if (sniffState.compiledStore) return Promise.resolve(sniffState.compiledStore);
+  if (sniffState.storePromise) return sniffState.storePromise;
+
+  sniffState.storePromise = new Promise(function (resolve, reject) {
+    var FP = window.StiffEyesFingerprint;
+    if (!FP) { reject(new Error('fingerprint-core not loaded')); return; }
+
+    var files = ['finger.json', 'kscan_fingerprint.json', 'webapp.json', 'apps.json'];
+    var base = 'lib/rules/';
+
+    // Load all rule files in parallel
+    Promise.all(files.map(function (filename) {
+      return fetch(chrome.runtime.getURL(base + filename))
+        .then(function (resp) {
+          if (!resp.ok) throw new Error('HTTP ' + resp.status);
+          return resp.json();
+        })
+        .catch(function (err) {
+          console.warn('Failed to load rule file:', filename, err.message);
+          return null;
+        });
+    })).then(function (results) {
+      var payloadMap = {};
+      for (var i = 0; i < files.length; i++) {
+        if (results[i]) payloadMap[files[i]] = results[i];
+      }
+      setSniffStatus('●', '正在编译规则库…', 'busy');
+      sniffState.compiledStore = FP.utils.buildUnifiedCompiledFingerprintStore(payloadMap);
+      setSniffStatus('●', '正在分析技术栈…', 'busy');
+      resolve(sniffState.compiledStore);
+    }).catch(function (e) {
+      reject(e);
+    });
+  });
+
+  return sniffState.storePromise;
+}
+
+function collectSniffPageSignals() {
+  return new Promise(function (resolve) {
+    chrome.tabs.sendMessage(currentTabId, {
+      type: 'COLLECT_SNIFF_PAGE_SIGNALS',
+      selectors: []
+    }, function (response) {
+      resolve(response || {});
+    });
+  });
+}
+
+function collectSniffRuntimeSignals() {
+  return new Promise(function (resolve) {
+    var extraChains = [];
+    if (window.__StiffEyesSniffGlobalChains && Array.isArray(window.__StiffEyesSniffGlobalChains)) {
+      extraChains = window.__StiffEyesSniffGlobalChains;
+    }
+    chrome.scripting.executeScript({
+      target: { tabId: currentTabId },
+      world: 'MAIN',
+      func: window.StiffEyesCollectRuntime,
+      args: [extraChains]
+    }, function (results) {
+      if (chrome.runtime.lastError || !results || !results[0]) {
+        resolve({});
+        return;
+      }
+      resolve(results[0].result || {});
+    });
+  });
+}
+
+function collectSniffBackgroundData() {
+  return new Promise(function (resolve) {
+    chrome.runtime.sendMessage({
+      type: 'GET_SNIFF_DATA',
+      tabId: currentTabId
+    }, function (response) {
+      resolve(response || {});
+    });
+  });
+}
+
+// Category icons (simple Unicode symbols per category)
+var SNIFF_CAT_ICONS = {
+  '内容管理系统（CMS）': '◇', '电子商务': '◆', '论坛': '▣', '网站构建器': '▤',
+  '托管平台': '☰', 'Web App': '◎', '数据库': '▦', 'JavaScript 框架': '⬡',
+  'JavaScript 库': '⬢', '用户界面（UI）框架': '▩', 'CSS 框架': '▨',
+  '字体脚本': '▥', '编程语言': '◈', 'Web 服务器': '◉', 'CDN': '◌',
+  '支付': '◧', '分析工具': '◨', '标签管理器': '◩', '监控': '◪',
+  '构建工具': '◫', '文档': '◬', 'API': '◭', '安全': '◮'
+};
+
+function getCatIcon(cat) {
+  return SNIFF_CAT_ICONS[cat] || '•';
+}
+
+function renderSniffResults(findings) {
+  var bodyEl = $('sniffBody');
+  var exportBtn = $('btnSniffExport');
+
+  if (!bodyEl) return;
+
+  // Update stats in topbar
+  var totalEl = $('sniffCountTotal');
+  var strongEl = $('sniffCountStrong');
+  var stableEl = $('sniffCountStable');
+  var weakEl = $('sniffCountWeak');
+
+  if (!findings || !findings.length) {
+    bodyEl.innerHTML = '<p class="sniff-empty">未识别到任何技术栈特征</p>';
+    if (exportBtn) exportBtn.disabled = true;
+    $('sniffStatTotal').style.display = 'none';
+    $('sniffStatStrong').style.display = 'none';
+    $('sniffStatStable').style.display = 'none';
+    $('sniffStatWeak').style.display = 'none';
+    return;
+  }
+
+  if (exportBtn) exportBtn.disabled = false;
+
+  var strongCount = 0, stableCount = 0, weakCount = 0;
+  findings.forEach(function (f) {
+    var label = StiffEyesSniff.scoreLabel(f.score);
+    if (label === '强') strongCount++;
+    else if (label === '稳') stableCount++;
+    else weakCount++;
+  });
+
+  if (totalEl) totalEl.textContent = findings.length;
+  if (strongEl) strongEl.textContent = strongCount;
+  if (stableEl) stableEl.textContent = stableCount;
+  if (weakEl) weakEl.textContent = weakCount;
+
+  $('sniffStatTotal').style.display = '';
+  $('sniffStatStrong').style.display = strongCount ? '' : 'none';
+  $('sniffStatStable').style.display = stableCount ? '' : 'none';
+  $('sniffStatWeak').style.display = weakCount ? '' : 'none';
+
+  // Group by category
+  var groups = {};
+  var catOrder = (window.StiffEyesSniff && window.StiffEyesSniff.CATEGORY_ORDER) || [];
+  findings.forEach(function (f) {
+    var cat = f.category || 'Other';
+    if (!groups[cat]) groups[cat] = [];
+    groups[cat].push(f);
+  });
+
+  var sortedCats = Object.keys(groups).sort(function (a, b) {
+    var ai = catOrder.indexOf(a), bi = catOrder.indexOf(b);
+    if (ai === -1) ai = 999;
+    if (bi === -1) bi = 999;
+    return ai - bi;
+  });
+
+  var html = '';
+  sortedCats.forEach(function (cat) {
+    var items = groups[cat];
+    items.sort(function (a, b) { return b.score - a.score; });
+    html += '<div class="sniff-cat open">';
+    html += '<button class="sniff-cat-toggle">';
+    html += '<span class="sniff-cat-arrow">▶</span>';
+    html += '<span class="sniff-cat-label">' + StiffEyesSniff.escapeHTML(cat) + '</span>';
+    html += '<span class="sniff-cat-count">' + items.length + '</span>';
+    html += '</button>';
+    html += '<div class="sniff-rows">';
+    items.forEach(function (f, idx) {
+      var scoreLabel = StiffEyesSniff.scoreLabel(f.score);
+      var strengthClass = scoreLabel === '强' ? 'strong' : scoreLabel === '稳' ? 'stable' : 'weak';
+      var vid = 'sniff-ev-' + StiffEyesSniff.escapeHTML(cat).replace(/[^a-zA-Z0-9]/g, '') + '-' + idx;
+      html += '<div class="sniff-row sniff-' + strengthClass + '" data-vid="' + vid + '">';
+      html += '<span class="sniff-row-icon">' + getCatIcon(cat) + '</span>';
+      html += '<span class="sniff-row-name" title="' + StiffEyesSniff.escapeHTML(f.name) + '">' + StiffEyesSniff.escapeHTML(f.name) + '</span>';
+      html += f.version ? '<span class="sniff-row-version">v' + StiffEyesSniff.escapeHTML(f.version) + '</span>' : '<span class="sniff-row-version" style="visibility:hidden">—</span>';
+      html += '<span class="sniff-row-bar-wrap"><span class="sniff-row-bar-fill ' + strengthClass + '" style="width:' + f.score + '%"></span></span>';
+      html += '<span class="sniff-row-score ' + strengthClass + '">' + f.score + '%</span>';
+      html += '<span class="sniff-row-tag ' + strengthClass + '">' + scoreLabel + '</span>';
+      html += '<span class="sniff-row-sources">' + (f.evidences || []).length + '</span>';
+      html += '</div>';
+      // Inline evidence
+      html += '<div class="sniff-evidence-inline" id="' + vid + '">';
+      (f.evidences || []).slice(0, 10).forEach(function (ev) {
+        var tagClass = '';
+        var src = ev.source || '';
+        if (/header|响应头|cookie|meta/i.test(src)) tagClass = 'h';
+        else if (/脚本|script|resource|资源|link|style/i.test(src)) tagClass = 'm';
+        else if (/运行时|global|vue/i.test(src)) tagClass = 'g';
+        html += '<div class="sniff-ev-line"><span class="sniff-ev-tag ' + tagClass + '">' + StiffEyesSniff.escapeHTML(src.slice(0, 8)) + '</span>' + StiffEyesSniff.escapeHTML((ev.value || '').slice(0, 160)) + '</div>';
+      });
+      html += '</div>';
+    });
+    html += '</div></div>';
+  });
+
+  bodyEl.innerHTML = html;
+
+  // Toggle category collapse
+  bodyEl.querySelectorAll('.sniff-cat-toggle').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      btn.parentElement.classList.toggle('open');
+    });
+  });
+
+  // Row click → expand/collapse inline evidence
+  bodyEl.querySelectorAll('.sniff-row').forEach(function (row) {
+    row.addEventListener('click', function () {
+      var vid = row.dataset.vid;
+      var evEl = vid ? document.getElementById(vid) : null;
+      // Collapse any others
+      bodyEl.querySelectorAll('.sniff-row.expanded').forEach(function (r) {
+        if (r !== row) r.classList.remove('expanded');
+      });
+      row.classList.toggle('expanded');
+    });
+  });
+}
+
+function setSniffStatus(icon, text, dotClass) {
+  var dotEl = $('sniffStatusDot');
+  var textEl = $('sniffStatusText');
+  if (dotEl) dotEl.className = 'sniff-dot-status ' + (dotClass || '');
+  if (textEl) textEl.textContent = text;
+}
+
+function exportSniffResults() {
+  if (!sniffState.findings.length) return;
+  var lines = [];
+  var groups = {};
+  sniffState.findings.forEach(function (f) {
+    var cat = f.category || 'Other';
+    if (!groups[cat]) groups[cat] = [];
+    groups[cat].push(f);
+  });
+  Object.keys(groups).forEach(function (cat) {
+    lines.push('## ' + cat);
+    groups[cat].forEach(function (f) {
+      lines.push(f.name + (f.version ? ' v' + f.version : '') + ' — ' + f.score + '% [' + (StiffEyesSniff.scoreLabel(f.score) || '') + ']');
+      (f.evidences || []).slice(0, 5).forEach(function (ev) {
+        lines.push('  ' + (ev.source || '') + ': ' + (ev.value || '').slice(0, 80));
+      });
+    });
+    lines.push('');
+  });
+  var blob = new Blob([lines.join('\n')], { type: 'text/plain' });
+  var url = URL.createObjectURL(blob);
+  chrome.downloads.download({ url: url, filename: 'sniff-results.txt', saveAs: true });
+}
+
+async function openSniff() {
+  if (sniffState.running) return;
+
+  // Check cache (includes URL hash to bust on page refresh)
+  var key = sniffCacheKey(currentTabId, currentTabUrl);
+  var cached = sniffState.cache[key];
+  if (cached && (Date.now() - cached.time < 600000)) {
+    sniffState.findings = cached.findings;
+    renderSniffResults(cached.findings);
+    setSniffStatus('✔', '已识别 ' + cached.findings.length + ' 项技术 (缓存)', 'ok');
+    sniffState.loaded = true;
+    return;
+  }
+
+  sniffState.running = true;
+  setSniffStatus('●', '正在采集页面信号…', 'busy');
+
+  try {
+    // 1. Collect signals in parallel
+    var results = await Promise.all([
+      collectSniffPageSignals().catch(function (e) { console.warn('Page signals failed:', e); return {}; }),
+      collectSniffRuntimeSignals().catch(function (e) { console.warn('Runtime signals failed:', e); return {}; }),
+      collectSniffBackgroundData().catch(function (e) { console.warn('Background data failed:', e); return {}; })
+    ]);
+    var page = results[0];
+    var runtime = results[1];
+    var bg = results[2];
+
+    // 2. Build DOM signal input (headers are pre-computed by background)
+    var domInput = StiffEyesSniffSignals.buildDomInput(page, runtime, bg);
+
+    // 3. Ensure compiled store is ready
+    setSniffStatus('●', '加载规则库…', 'busy');
+    var compiledStore = await ensureCompiledStore();
+
+    // 4. Get header hits (pre-computed eagerly by background.js, like SnowEyesPlus)
+    var headerHits = (bg && Array.isArray(bg.headerHits)) ? bg.headerHits : [];
+    if (!headerHits.length) {
+      // Fallback: run header pass in popup if background didn't compute it
+      var headerInput = StiffEyesSniffSignals.buildHeaderInput(page, runtime, bg);
+      headerHits = (window.StiffEyesFingerprint && window.StiffEyesFingerprint.utils &&
+        typeof window.StiffEyesFingerprint.utils.detectFingerprintsWithUnifiedStore === 'function')
+        ? window.StiffEyesFingerprint.utils.detectFingerprintsWithUnifiedStore(compiledStore, headerInput, { threshold: 72, includeLowScore: false }) || []
+        : [];
+    }
+
+    // 5. Run DOM pass
+    setSniffStatus('●', '正在分析技术栈…', 'busy');
+    var FP = (window.StiffEyesFingerprint && window.StiffEyesFingerprint.utils) || {};
+    var domHits = (typeof FP.detectFingerprintsWithUnifiedStore === 'function')
+      ? FP.detectFingerprintsWithUnifiedStore(compiledStore, domInput, { threshold: 72, includeLowScore: false }) || []
+      : [];
+
+    // 6. Merge header + DOM hits (matching SnowEyesPlus mergeFingerprintHitResults)
+    var merged = [];
+    if (typeof FP.mergeFingerprintHitResults === 'function') {
+      merged = FP.mergeFingerprintHitResults(headerHits, domHits);
+    } else {
+      var byName = {};
+      headerHits.concat(domHits).forEach(function (h) {
+        var nk = String(h.name || '').toLowerCase();
+        if (!byName[nk] || (h.score || 0) > (byName[nk].score || 0)) {
+          byName[nk] = h;
+        }
+      });
+      merged = Object.values(byName);
+    }
+
+    // 7. Run structured rule engine (sniff-rules-core.js)
+    var structuredRules = window.StiffEyesSniffRules || [];
+    var structuredHits = [];
+    if (structuredRules.length && typeof StiffEyesSniff.matchStructuredRules === 'function') {
+      structuredHits = StiffEyesSniff.matchStructuredRules(structuredRules, page, runtime, bg);
+    }
+
+    // 8. Merge structured hits into results (structured rules take priority on collision)
+    if (structuredHits.length) {
+      var mergedByName = {};
+      merged.forEach(function (h) {
+        mergedByName[String(h.name || '').toLowerCase()] = h;
+      });
+      structuredHits.forEach(function (h) {
+        var nk = String(h.name || '').toLowerCase();
+        // Structured rules have higher specificity — replace on collision
+        if (!mergedByName[nk] || (h.score || 0) >= (mergedByName[nk].score || 0)) {
+          mergedByName[nk] = h;
+        }
+      });
+      merged = Object.values(mergedByName);
+    }
+
+    var findings = merged.map(function (h) { return StiffEyesSniff.convertHit(h); });
+
+    sniffState.findings = findings;
+    sniffState.cache[key] = { findings: findings, time: Date.now() };
+    sniffState.loaded = true;
+
+    renderSniffResults(findings);
+    if (findings.length) {
+      setSniffStatus('✔', '已识别 ' + findings.length + ' 项技术', 'ok');
+    } else {
+      setSniffStatus('✔', '未识别到任何技术栈特征', 'ok');
+    }
+  } catch (e) {
+    console.error('Sniff error:', e);
+    setSniffStatus('✘', '嗅探出错: ' + (e.message || '未知错误'), 'error');
+  } finally {
+    sniffState.running = false;
+    sniffState.storePromise = null;
+  }
+}
+
+// Wire up sniff buttons
+$('btnSniffRefresh').addEventListener('click', function () {
+  var key = sniffCacheKey(currentTabId, currentTabUrl);
+  delete sniffState.cache[key];
+  sniffState.compiledStore = null;
+  sniffState.storePromise = null;
+  openSniff();
+});
+$('btnSniffExport').addEventListener('click', exportSniffResults);
 async function init() {
   buildScanUi();
   const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -790,6 +1146,19 @@ async function init() {
     return;
   }
   currentTabId = tab.id;
+  currentTabUrl = tab.url || '';
+
+  // Clear sniff cache on popup reopen — ensures fresh detection
+  // (handles edge case where Chrome restores popup from memory)
+  sniffState = {
+    findings: [],
+    running: false,
+    loaded: false,
+    cache: {},
+    compiledStore: null,
+    storeLoading: false,
+    storePromise: null
+  };
 
   try {
     const u = new URL(tab.url || '');
@@ -815,6 +1184,9 @@ async function init() {
   if (!currentScan) {
     renderScan({ scanning: true, blacklisted: false, counts: { total: 0 } });
   }
+
+  // Auto-trigger sniff on popup open
+  openSniff();
 }
 
 document.querySelectorAll('#mainTabs .tab').forEach((btn) => {
@@ -827,11 +1199,17 @@ document.querySelectorAll('#mainTabs .tab').forEach((btn) => {
       window.StiffEyesWebpackPanel.init(currentTabId);
       window.StiffEyesWebpackPanel.autoExtractIfNeeded();
     }
+    if (btn.dataset.panel === 'panel-finger') {
+      openSniff();
+    }
     if (btn.dataset.panel === 'panel-cloud') {
       initCloudPanel();
     }
     if (btn.dataset.panel === 'panel-payload') {
       initPayloadPanel();
+    }
+    if (btn.dataset.panel === 'panel-hackbar' && window.StiffEyesHackbarPanel && currentTabId) {
+      window.StiffEyesHackbarPanel.init(currentTabId);
     }
   });
 });

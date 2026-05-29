@@ -96,39 +96,106 @@
         var base = msg.basePath;
         var text = msg.jsText || '';
         var chunks = [];
-        var patterns = [
-          /["']([^"']+\.js)["']\s*:\s*["']([a-f0-9]{8,})["']/g,
-          /\{\s*["']?([\w.-]+)["']?\s*:\s*["']([a-f0-9]{8,})["']/g,
-          /["']([^"']+\.js)["']\s*:\s*["']([^"']+)["']/g
-        ];
-        patterns.forEach(function (re) {
-          var m;
-          while ((m = re.exec(text)) !== null) {
-            var name = m[1];
-            if (!/\.js$/i.test(name)) name = name + '.js';
-            var url = resolveUrl(base, name);
-            if (chunks.indexOf(url) === -1) chunks.push(url);
-          }
-        });
-        var webpackJsonRe =
-          /\{[^{}]*\}\s*\[[^\]]*\]\s*\+\s*"([^"]+\.js)"/g;
-        var wjm;
-        while ((wjm = webpackJsonRe.exec(text)) !== null) {
-          var wu = resolveUrl(base, wjm[1]);
-          if (chunks.indexOf(wu) === -1) chunks.push(wu);
+
+        function addChunk(name) {
+          if (!/\.js$/i.test(name)) name = name + '.js';
+          var url = resolveUrl(base, name);
+          if (chunks.indexOf(url) === -1) chunks.push(url);
         }
-        var publicPathRe = /__webpack_require__\.p\s*=\s*["']([^"']+)["']/;
-        var ppm = text.match(publicPathRe);
+
+        // 1. "chunk.js": "hash" — webpack 4 chunk map
+        var re1 = /["']([^"']+\.js)["']\s*:\s*["']([a-f0-9]{8,})["']/g;
+        var m1;
+        while ((m1 = re1.exec(text)) !== null) addChunk(m1[1]);
+
+        // 2. "chunk": "hash" (no .js suffix) — webpack asset map
+        var re2 = /\{\s*["']?([\w.-]+)["']?\s*:\s*["']([a-f0-9]{8,})["']/g;
+        var m2;
+        while ((m2 = re2.exec(text)) !== null) addChunk(m2[1]);
+
+        // 3. Generic "key": "value" chunk definitions
+        var re3 = /["']([^"']+\.js)["']\s*:\s*["']([^"']+)["']/g;
+        var m3;
+        while ((m3 = re3.exec(text)) !== null) addChunk(m3[1]);
+
+        // 4. Numeric ID mapping: 0: "chunk.js" — webpack 5 module map
+        var re4 = /(\d+)\s*:\s*"([^"]+\.js)"/g;
+        var m4;
+        while ((m4 = re4.exec(text)) !== null) addChunk(m4[2]);
+
+        // 5. Numeric ID without .js: 0: "chunk-name"
+        var re5 = /(\d+)\s*:\s*"([^"]+)"/g;
+        var m5;
+        while ((m5 = re5.exec(text)) !== null) {
+          if (!/\.(js|css|json|map)$/i.test(m5[2]) && !/^[A-Z]/.test(m5[2])) addChunk(m5[2]);
+        }
+
+        // 6. {…}[…] + ".js" — webpack JSONP chunk map (single-line)
+        var re6 = /\{[^{}]*\}\s*\[[^\]]*\]\s*\+\s*"([^"]+\.js)"/g;
+        var m6;
+        while ((m6 = re6.exec(text)) !== null) addChunk(m6[1]);
+
+        // 7. {…}[…] + ".js" — webpack JSONP chunk map (multi-line tolerant)
+        var re7 = /\{[\s\S]{0,5000}?\}\s*\[[^\]]*\]\s*\+\s*"([^"]+\.js)"/g;
+        var m7;
+        while ((m7 = re7.exec(text)) !== null) addChunk(m7[1]);
+
+        // 8. ] + ".chunk.js" — suffix concat patterns
+        var re8 = /\]\s*\+\s*"([^"]+\.js)"/g;
+        var m8;
+        while ((m8 = re8.exec(text)) !== null) addChunk(m8[1]);
+
+        // 9. "js/" + … — path prefix concatenation
+        var re9 = /"js\/"\s*\+\s*"([^"]+\.js)"/g;
+        var m9;
+        while ((m9 = re9.exec(text)) !== null) addChunk(m9[1]);
+
+        // 10. __webpack_require__.u = … => — webpack 5 runtime chunk getter
+        var re10 = /\.u\s*=\s*(?:function\s*\([^)]*\)\s*=>\s*|[^=]+=>\s*)(?:["'][^"']*["']\s*\+)?/g;
+        // Skip — used only for detection; actual chunks resolved by other patterns
+
+        // 11. __webpack_require__.p = "…" — public path
+        var ppm = text.match(/__webpack_require__\.p\s*=\s*["']([^"']+)["']/);
         if (ppm && ppm[1]) {
           base = resolveUrl(entry || base, ppm[1]);
         }
-        var chunkRe = /(?:import\s*\(\s*|["'])([^"']*chunk[^"']*\.js)/gi;
-        var cm;
-        while ((cm = chunkRe.exec(text)) !== null) {
-          var u = resolveUrl(base, cm[1]);
-          if (chunks.indexOf(u) === -1) chunks.push(u);
+
+        // 12. import("…chunk…") — dynamic import
+        var re12 = /import\s*\(\s*["']([^"']+\.js)["']\s*\)/g;
+        var m12;
+        while ((m12 = re12.exec(text)) !== null) addChunk(m12[1]);
+
+        // 13. import "…" — static import paths
+        var re13 = /import\s*["']\.\/([^"']+?\.m?js)["']/g;
+        var m13;
+        while ((m13 = re13.exec(text)) !== null) addChunk(m13[1]);
+
+        // 14. e("…") or n("…") — minified webpack require calls
+        var re14 = /(?:\w\s*\(\s*["'])([^"']+\.js)(?:["']\s*\))/g;
+        var m14;
+        while ((m14 = re14.exec(text)) !== null) {
+          if (m14[1].indexOf('/') !== -1 || /[a-f0-9]{6,}/.test(m14[1])) addChunk(m14[1]);
         }
-        sendResponse({ chunks: chunks, entry: entry, base: base });
+
+        // 15. Hash-based filenames: name.abc123.js found in concatenation context
+        var re15 = /"([a-z0-9_-]+\.[0-9a-f]{6,}\.m?js)"/gi;
+        var m15;
+        while ((m15 = re15.exec(text)) !== null) addChunk(m15[1]);
+
+        // Deduplicate by filename stem
+        var seenStems = {};
+        var deduped = [];
+        chunks.forEach(function (url) {
+          try {
+            var stem = new URL(url).pathname.split('/').pop().replace(/\.js$/i, '');
+            if (!seenStems[stem]) {
+              seenStems[stem] = true;
+              deduped.push(url);
+            }
+          } catch (e) { deduped.push(url); }
+        });
+
+        sendResponse({ chunks: deduped, entry: entry, base: base });
       } catch (e) {
         sendResponse({ error: e.message, chunks: [] });
       }

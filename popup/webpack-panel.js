@@ -4,7 +4,8 @@
     tabId: null,
     raw: null,
     entries: [],
-    analyzeHits: []
+    analyzeHits: [],
+    parsedChunks: []
   };
 
   function $(id) {
@@ -346,6 +347,49 @@
     setStatus($('wpStatusMsg'), '已恢复为默认规则', 'success');
   }
 
+  async function parseChunks() {
+    var entry = ($('wpChunkEntry').value || '').trim();
+    var base = ($('wpChunkBase').value || '').trim();
+    if (!entry || !base) return;
+
+    state.parsedChunks = [];
+    $('wpChunkStartBtn').disabled = true;
+    renderResults($('wpChunkResults'), [], '正在解析入口 JS…');
+    setStatus($('wpChunkStatusMsg'), '', '');
+
+    var jsText = await Core.fetchText(entry);
+    if (!jsText) {
+      renderResults($('wpChunkResults'), [], '无法获取入口 JS，请检查地址');
+      setStatus($('wpChunkStatusMsg'), '入口 JS 获取失败', 'error');
+      $('wpChunkStartBtn').disabled = false;
+      return;
+    }
+
+    var parsed = await chrome.tabs.sendMessage(state.tabId, {
+      type: 'WEBPACK_PARSE_CHUNKS',
+      entryUrl: entry,
+      basePath: base,
+      jsText: jsText
+    });
+
+    var chunks = (parsed && parsed.chunks) || [];
+    state.parsedChunks = chunks;
+    if (!chunks.length) {
+      renderResults($('wpChunkResults'), [], '未解析到分包，请检查基础路径');
+      setStatus($('wpChunkStatusMsg'), '解析完成，0 个分包', 'error');
+      $('wpChunkStartBtn').disabled = false;
+      return;
+    }
+
+    var lines = chunks.map(function (url, i) {
+      var fname = safeFilename(url, 'chunk-' + i + '.js');
+      return { html: '<span class="tag">CHUNK</span>' + url, title: fname };
+    });
+    renderResults($('wpChunkResults'), lines, '');
+    setStatus($('wpChunkStatusMsg'), '解析到 ' + chunks.length + ' 个分包，点击下载', 'success');
+    $('wpChunkStartBtn').disabled = false;
+  }
+
   async function chunkDownload() {
     var entry = ($('wpChunkEntry').value || '').trim();
     var base = ($('wpChunkBase').value || '').trim();
@@ -358,34 +402,41 @@
       return;
     }
 
-    $('wpChunkStartBtn').disabled = true;
-    renderResults($('wpChunkResults'), [], '正在拉取入口 JS…');
-    showProgress('wpChunkProgressWrap', 'wpChunkProgressFill', 'wpChunkProgressText', 0, 0, 1, entry);
+    var chunks = state.parsedChunks;
 
-    var jsText = await Core.fetchText(entry);
-    if (!jsText) {
-      setStatus($('wpChunkStatusMsg'), '无法获取入口 JS', 'error');
-      $('wpChunkStartBtn').disabled = false;
-      hideProgress('wpChunkProgressWrap');
-      return;
-    }
-
-    var parsed = await chrome.tabs.sendMessage(state.tabId, {
-      type: 'WEBPACK_PARSE_CHUNKS',
-      entryUrl: entry,
-      basePath: base,
-      jsText: jsText
-    });
-
-    var chunks = (parsed && parsed.chunks) || [];
+    // If no pre-parsed chunks, fetch and parse now
     if (!chunks.length) {
-      renderResults($('wpChunkResults'), [], '未解析到分包地址，请检查基础路径');
-      setStatus($('wpChunkStatusMsg'), '解析完成，0 个分包', 'error');
-      $('wpChunkStartBtn').disabled = false;
-      hideProgress('wpChunkProgressWrap');
-      return;
+      $('wpChunkStartBtn').disabled = true;
+      renderResults($('wpChunkResults'), [], '正在拉取入口 JS…');
+      showProgress('wpChunkProgressWrap', 'wpChunkProgressFill', 'wpChunkProgressText', 0, 0, 1, entry);
+
+      var jsText = await Core.fetchText(entry);
+      if (!jsText) {
+        setStatus($('wpChunkStatusMsg'), '无法获取入口 JS', 'error');
+        $('wpChunkStartBtn').disabled = false;
+        hideProgress('wpChunkProgressWrap');
+        return;
+      }
+
+      var parsed = await chrome.tabs.sendMessage(state.tabId, {
+        type: 'WEBPACK_PARSE_CHUNKS',
+        entryUrl: entry,
+        basePath: base,
+        jsText: jsText
+      });
+
+      chunks = (parsed && parsed.chunks) || [];
+      state.parsedChunks = chunks;
+      if (!chunks.length) {
+        renderResults($('wpChunkResults'), [], '未解析到分包地址，请检查基础路径');
+        setStatus($('wpChunkStatusMsg'), '解析完成，0 个分包', 'error');
+        $('wpChunkStartBtn').disabled = false;
+        hideProgress('wpChunkProgressWrap');
+        return;
+      }
     }
 
+    $('wpChunkStartBtn').disabled = true;
     var lines = [];
     var total = chunks.length;
     var ok = 0;
@@ -407,13 +458,13 @@
         var fname = safeFilename(url, 'chunk-' + i + '.js');
         var dr = await Core.downloadDataUrl(fname, body, 'application/javascript');
         lines.push({
-          html: '<span class="tag">OK</span>' + url,
+          html: '<span class="tag ok">OK</span>' + url,
           title: fname
         });
         if (dr && dr.success) ok += 1;
       } else {
         lines.push({
-          html: '<span class="tag">FAIL</span>' + url,
+          html: '<span class="tag fail">FAIL</span>' + url,
           title: '下载失败'
         });
       }
@@ -439,11 +490,15 @@
     $('wpChunkNavBtn').addEventListener('click', function () {
       $('webpackMainView').classList.add('hidden');
       $('webpackChunkView').classList.remove('hidden');
+      if (($('wpChunkEntry').value || '').trim() && ($('wpChunkBase').value || '').trim()) {
+        parseChunks();
+      }
     });
     $('wpBackBtn').addEventListener('click', function () {
       $('webpackChunkView').classList.add('hidden');
       $('webpackMainView').classList.remove('hidden');
     });
+    $('wpChunkParseBtn').addEventListener('click', parseChunks);
     $('wpChunkStartBtn').addEventListener('click', chunkDownload);
 
     $('wpImportRulesBtn').addEventListener('click', function () {

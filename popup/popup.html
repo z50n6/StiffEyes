@@ -30,6 +30,7 @@
     <button type="button" class="tab" data-panel="panel-webpack" role="tab">Webpack</button>
     <button type="button" class="tab" data-panel="panel-cloud" role="tab">云存储</button>
     <button type="button" class="tab" data-panel="panel-payload" role="tab">Payload</button>
+	    <button type="button" class="tab" data-panel="panel-hackbar" role="tab" style="display:none">HackBar</button>
   </nav>
 
   <main>
@@ -44,7 +45,25 @@
     </section>
 
     <section id="panel-finger" class="panel">
-      <ul class="list" id="listFinger"></ul>
+      <div class="sniff-panel">
+        <div class="sniff-topbar">
+          <div class="sniff-topbar-left">
+            <span class="sniff-dot-status" id="sniffStatusDot"></span>
+            <span class="sniff-topbar-text" id="sniffStatusText">自动识别中…</span>
+          </div>
+          <div class="sniff-topbar-right">
+            <span class="sniff-stat" id="sniffStatTotal" style="display:none"><b id="sniffCountTotal">0</b> 项</span>
+            <span class="sniff-stat sniff-stat-strong" id="sniffStatStrong" style="display:none">强 <b id="sniffCountStrong">0</b></span>
+            <span class="sniff-stat sniff-stat-stable" id="sniffStatStable" style="display:none">稳 <b id="sniffCountStable">0</b></span>
+            <span class="sniff-stat sniff-stat-weak" id="sniffStatWeak" style="display:none">弱 <b id="sniffCountWeak">0</b></span>
+            <button type="button" class="btn btn-sm" id="btnSniffRefresh" title="重新识别">刷新</button>
+            <button type="button" class="btn btn-sm" id="btnSniffExport" disabled>导出</button>
+          </div>
+        </div>
+        <div class="sniff-body" id="sniffBody">
+          <p class="sniff-empty" id="sniffEmpty">正在识别网站技术栈…</p>
+        </div>
+      </div>
     </section>
 
     <section id="panel-spring" class="panel">
@@ -109,12 +128,13 @@
           <button type="button" class="btn" id="wpBackBtn">返回</button>
           <span class="wp-subtitle">JS 分包下载</span>
         </div>
-        <p class="notice">填写入口 JS 与 chunk 基础路径，解析后逐个下载。</p>
+        <p class="notice">填写入口 JS 与 chunk 基础路径，先解析再下载。</p>
         <label class="field-label" for="wpChunkEntry">入口 JS 地址</label>
         <input type="url" class="wp-input" id="wpChunkEntry" placeholder="https://example.com/static/js/app.xxx.js" />
         <label class="field-label" for="wpChunkBase">基础路径（必填）</label>
         <input type="text" class="wp-input" id="wpChunkBase" placeholder="https://example.com/static/js/" />
         <div class="toolbar">
+          <button type="button" class="btn" id="wpChunkParseBtn">解析分包</button>
           <button type="button" class="btn btn-accent" id="wpChunkStartBtn">开始下载</button>
         </div>
         <div class="progress-wrap hidden" id="wpChunkProgressWrap">
@@ -196,7 +216,137 @@
       </div>
     </section>
 
-  </main>
+    <section id="panel-hackbar" class="panel">
+      <div class="hackbar-body">
+
+        <textarea class="hackbar-url-input" id="hbUrlInput" rows="2" placeholder="输入 URL 或从当前页面加载…"></textarea>
+
+        <div class="hackbar-action-row">
+          <button type="button" class="btn btn-sm" id="hbLoadUrl">Load URL</button>
+          <button type="button" class="btn btn-sm" id="hbSplitUrl">Split URL</button>
+          <div class="hackbar-method-toggle">
+            <button type="button" class="hackbar-method-btn active" id="hbGetBtn">GET</button>
+            <button type="button" class="hackbar-method-btn" id="hbPostBtn">POST</button>
+          </div>
+          <button type="button" class="btn btn-accent btn-sm" id="hbExecute">Execute</button>
+        </div>
+
+        <div class="hackbar-toggle-row">
+          <label class="hackbar-toggle"><input type="checkbox" id="hbEnablePost" /> POST</label>
+          <label class="hackbar-toggle"><input type="checkbox" id="hbEnableReferer" /> Referer</label>
+          <label class="hackbar-toggle"><input type="checkbox" id="hbEnableUA" /> UA</label>
+          <label class="hackbar-toggle"><input type="checkbox" id="hbEnableCookie" /> Cookie</label>
+          <button type="button" class="hackbar-clear-link" id="hbClearHeaders">Clear All</button>
+        </div>
+
+        <div class="hackbar-conditional hidden" id="hbPostBlock">
+          <textarea class="hackbar-input" id="hbPostInput" rows="2" placeholder="POST body (key=value&amp;key2=value2)"></textarea>
+        </div>
+        <div class="hackbar-conditional hidden" id="hbRefererBlock">
+          <input type="text" class="hackbar-input" id="hbRefererInput" placeholder="Referer: https://example.com/" />
+        </div>
+        <div class="hackbar-conditional hidden" id="hbUABlock">
+          <div class="hackbar-ua-row">
+            <select class="hackbar-input hackbar-ua-select" id="hbUASelect">
+              <option value="">自定义 UA…</option>
+            </select>
+            <input type="text" class="hackbar-input" id="hbUAInput" placeholder="或直接输入 User-Agent…" />
+          </div>
+        </div>
+        <div class="hackbar-conditional hidden" id="hbCookieBlock">
+          <input type="text" class="hackbar-input" id="hbCookieInput" placeholder="Cookie: session=abc; token=xyz" />
+        </div>
+
+        <div class="hackbar-subtabs">
+          <button type="button" class="hackbar-subtab active" data-toolcat="encrypt">加密</button>
+          <button type="button" class="hackbar-subtab" data-toolcat="encode">编码</button>
+          <button type="button" class="hackbar-subtab" data-toolcat="sql">SQL</button>
+          <button type="button" class="hackbar-subtab" data-toolcat="xss">XSS</button>
+          <button type="button" class="hackbar-subtab" data-toolcat="lfi">LFI</button>
+          <button type="button" class="hackbar-subtab" data-toolcat="other">其他</button>
+        </div>
+
+        <div class="hackbar-io-row">
+          <textarea class="hackbar-tool-input" id="hbToolInput" rows="4" placeholder="输入…"></textarea>
+          <textarea class="hackbar-tool-output" id="hbToolOutput" rows="4" readonly placeholder="输出…"></textarea>
+        </div>
+
+        <div class="hackbar-tool-panel" id="hbPanelEncrypt">
+          <div class="hackbar-btn-row">
+            <button type="button" class="btn btn-sm hackbar-tool-btn" data-tool="md5">MD5</button>
+            <button type="button" class="btn btn-sm hackbar-tool-btn" data-tool="sha1">SHA-1</button>
+            <button type="button" class="btn btn-sm hackbar-tool-btn" data-tool="sha256">SHA-256</button>
+            <button type="button" class="btn btn-sm hackbar-tool-btn" data-tool="rot13">ROT13</button>
+          </div>
+        </div>
+
+        <div class="hackbar-tool-panel hidden" id="hbPanelEncode">
+          <div class="hackbar-btn-row">
+            <button type="button" class="btn btn-sm hackbar-tool-btn" data-tool="b64enc">Base64+</button>
+            <button type="button" class="btn btn-sm hackbar-tool-btn" data-tool="b64dec">Base64-</button>
+            <button type="button" class="btn btn-sm hackbar-tool-btn" data-tool="urlenc">URL+</button>
+            <button type="button" class="btn btn-sm hackbar-tool-btn" data-tool="urldec">URL-</button>
+            <button type="button" class="btn btn-sm hackbar-tool-btn" data-tool="hexenc">Hex+</button>
+            <button type="button" class="btn btn-sm hackbar-tool-btn" data-tool="hexdec">Hex-</button>
+          </div>
+        </div>
+
+        <div class="hackbar-tool-panel hidden" id="hbPanelSql">
+          <div class="hackbar-btn-row">
+            <button type="button" class="btn btn-sm hackbar-tool-btn" data-tool="mysql_char">MySQL CHAR</button>
+            <button type="button" class="btn btn-sm hackbar-tool-btn" data-tool="mssql_char">MSSQL CHAR</button>
+            <button type="button" class="btn btn-sm hackbar-tool-btn" data-tool="oracle_char">Oracle CHAR</button>
+          </div>
+          <div class="hackbar-btn-row">
+            <button type="button" class="btn btn-sm hackbar-tool-btn" data-tool="union_select">UNION SELECT</button>
+            <button type="button" class="btn btn-sm hackbar-tool-btn" data-tool="convert_utf8">CONVERT UTF8</button>
+            <button type="button" class="btn btn-sm hackbar-tool-btn" data-tool="convert_latin1">CONVERT Latin1</button>
+          </div>
+          <div class="hackbar-btn-row">
+            <button type="button" class="btn btn-sm hackbar-tool-btn" data-tool="inline_comment">Inline Comment</button>
+            <button type="button" class="btn btn-sm hackbar-tool-btn" data-tool="basic_info">Basic Info</button>
+          </div>
+        </div>
+
+        <div class="hackbar-tool-panel hidden" id="hbPanelXss">
+          <div class="hackbar-btn-row">
+            <button type="button" class="btn btn-sm hackbar-tool-btn" data-tool="xss_fromcharcode">String.fromCharCode</button>
+            <button type="button" class="btn btn-sm hackbar-tool-btn" data-tool="xss_htmlent">HTML Entities</button>
+            <button type="button" class="btn btn-sm hackbar-tool-btn" data-tool="xss_alert">XSS Alert</button>
+          </div>
+        </div>
+
+        <div class="hackbar-tool-panel hidden" id="hbPanelLfi">
+          <div class="hackbar-lfi-list" id="hbLfiList"></div>
+        </div>
+
+        <div class="hackbar-tool-panel hidden" id="hbPanelOther">
+          <div class="hackbar-btn-row">
+            <button type="button" class="btn btn-sm hackbar-tool-btn" data-tool="jsonify">JSON Beautify</button>
+            <button type="button" class="btn btn-sm hackbar-tool-btn" data-tool="uppercase">Uppercase</button>
+            <button type="button" class="btn btn-sm hackbar-tool-btn" data-tool="lowercase">Lowercase</button>
+          </div>
+        </div>
+
+        <div class="hackbar-tool-actions">
+          <button type="button" class="btn btn-sm hackbar-push-btn" id="hbPushToUrl" title="将输出填入 URL">→ URL</button>
+          <button type="button" class="btn btn-sm hackbar-copy-btn" id="hbCopyOutput">复制</button>
+        </div>
+
+      </div>
+    </section>
+
+    <div class="hackbar-modal-overlay hidden" id="hbModalOverlay">
+      <div class="hackbar-modal">
+        <input type="text" id="hbModalInput" placeholder="输入文本…" />
+        <div class="hackbar-modal-btns">
+          <button type="button" class="btn btn-sm" id="hbModalCancel">取消</button>
+          <button type="button" class="btn btn-sm btn-accent" id="hbModalOk">确定</button>
+        </div>
+      </div>
+    </div>
+
+
 
   <footer class="footer" id="appFooter">
     仅限授权安全测试 · 绷着脸 StiffEyes
@@ -207,7 +357,18 @@
   <script src="../lib/payloads.js"></script>
   <script src="../lib/webpack-scan-rules.js"></script>
   <script src="../lib/webpack-core.js"></script>
+  <script src="../lib/fingerprint-core.js"></script>
+  <script src="../lib/sniff-rules-core.js"></script>
+  <script src="../lib/sniff-rules-webtech.js"></script>
+  <script src="../lib/sniff-engine.js"></script>
+  <script src="../lib/sniff-signals.js"></script>
+  <script src="../lib/sniff-probes.js"></script>
+  <script src="../lib/hackbar-crypto.js"></script>
+  <script src="../lib/hackbar-sql.js"></script>
+  <script src="../lib/hackbar-xss.js"></script>
+  <script src="../lib/hackbar-payloads.js"></script>
   <script src="webpack-panel.js"></script>
+  <script src="hackbar-panel.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>

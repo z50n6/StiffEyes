@@ -1,19 +1,149 @@
 importScripts(
   'lib/patterns.js',
-  'lib/fingerprint-rules.js',
   'lib/spring-paths.js',
   'lib/cloud-bucket-rules.js',
-  'lib/cloud-bucket-vuln.js'
+  'lib/cloud-bucket-vuln.js',
+  'lib/fingerprint-core.js'
 );
 
 // ========== Tab State & Badge ==========
 const tabCountsCache = new Map();
 const tabJsMap = {};
 
+// ========== HackBar State ==========
+var _hackbarHeaders = new Map();   // tabId -> {referer, ua, cookie}
+var _hackbarPostData = new Map();  // tabId -> {url, body, timestamp}
+
 // ========== Cloud Bucket State ==========
 let cloudBuckets = [];
 let cloudBucketsLoaded = false;
 const cloudBucketScanJobs = new Map();
+
+// ========== Fingerprint Store (eager header detection like SnowEyesPlus) ==========
+let _fingerprintStorePromise = null;
+let _fingerprintStore = null;
+
+function _getFingerprintStore() {
+  if (_fingerprintStore) return Promise.resolve(_fingerprintStore);
+  if (_fingerprintStorePromise) return _fingerprintStorePromise;
+
+  var FP = self.StiffEyesFingerprint;
+  if (!FP) return Promise.reject(new Error('fingerprint-core not loaded in SW'));
+
+  _fingerprintStorePromise = (async function () {
+    // Check session cache first
+    try {
+      var cached = await chrome.storage.session.get('stiffeyes_fp_store_v2');
+      var store = cached && cached.stiffeyes_fp_store_v2;
+      if (store && store.version === FP.constants.FINGERPRINT_RULE_CACHE_VERSION) {
+        _fingerprintStore = store;
+        return _fingerprintStore;
+      }
+    } catch (e) { /* cache read failed, rebuild */ }
+
+    // Load rule files
+    var files = ['finger.json', 'kscan_fingerprint.json', 'webapp.json', 'apps.json'];
+    var payloadMap = {};
+    var base = 'lib/rules/';
+
+    await Promise.all(files.map(async function (filename) {
+      try {
+        var resp = await fetch(chrome.runtime.getURL(base + filename));
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        var data = await resp.json();
+        payloadMap[filename] = data;
+      } catch (e) {
+        console.warn('Failed to load fingerprint rule file:', filename, e.message);
+      }
+    }));
+
+    _fingerprintStore = FP.utils.buildUnifiedCompiledFingerprintStore(payloadMap);
+
+    // Cache in session storage (best-effort)
+    try {
+      await chrome.storage.session.set({ stiffeyes_fp_store_v2: _fingerprintStore });
+    } catch (e) {}
+
+    return _fingerprintStore;
+  })();
+
+  return _fingerprintStorePromise;
+}
+
+async function _detectHeaderFingerprints(details) {
+  try {
+    var store = await _getFingerprintStore();
+    var FP = self.StiffEyesFingerprint;
+    if (!FP || !store) return [];
+
+    // Build headersMap from responseHeaders
+    var headersMap = new Map();
+    if (details.responseHeaders) {
+      for (var i = 0; i < details.responseHeaders.length; i++) {
+        var h = details.responseHeaders[i];
+        var key = (h.name || '').toLowerCase();
+        if (!key) continue;
+        var prev = headersMap.get(key) || '';
+        headersMap.set(key, prev ? prev + ', ' + h.value : h.value);
+      }
+    }
+
+    // Parse cookies from Set-Cookie header
+    var cookiesMap = new Map();
+    var setCookieHeader = headersMap.get('set-cookie') || '';
+    var cookieHeader = headersMap.get('cookie') || '';
+    var cookieText = setCookieHeader || cookieHeader || '';
+    if (cookieText) {
+      cookieText.split('\n').forEach(function (line) {
+        line.split(';').forEach(function (token) {
+          var t = token.trim();
+          if (!t) return;
+          var idx = t.indexOf('=');
+          if (idx >= 0) cookiesMap.set(t.slice(0, idx).trim().toLowerCase(), t.slice(idx + 1).trim());
+        });
+      });
+    }
+
+    var signalInput = {
+      url: details.url,
+      title: '',
+      body: '',
+      headersMap: headersMap,
+      metaMap: new Map(),
+      cookieText: cookieText,
+      cookiesMap: cookiesMap,
+      scripts: [],
+      env: [],
+      iconHashes: [],
+      jsProbe: {}
+    };
+
+    return FP.utils.detectFingerprintsWithUnifiedStore(store, signalInput, { threshold: 72, includeLowScore: false }) || [];
+  } catch (e) {
+    console.warn('Header fingerprint detection error:', e);
+    return [];
+  }
+}
+
+// ========== Sniff Observation State ==========
+const tabObservations = new Map();
+
+function getObservation(tabId) {
+  if (!tabObservations.has(tabId)) {
+    tabObservations.set(tabId, { main: null, resources: [], scripts: [], updatedAt: 0 });
+  }
+  return tabObservations.get(tabId);
+}
+
+function normalizeHeaders(responseHeaders) {
+  var out = {};
+  if (!responseHeaders) return out;
+  for (var i = 0; i < responseHeaders.length; i++) {
+    var name = (responseHeaders[i].name || '').toLowerCase();
+    if (name) out[name] = (out[name] || '') + (out[name] ? ', ' : '') + (responseHeaders[i].value || '');
+  }
+  return out;
+}
 
 function setTabCount(tabId, count) {
   tabCountsCache.set(tabId, count);
@@ -62,62 +192,30 @@ chrome.webNavigation.onCommitted.addListener((details) => {
   const { tabId, frameId } = details;
   if (frameId === 0) {
     tabCountsCache.delete(tabId);
+    // Only clear scan data — sniff main/hits were just written by onHeadersReceived
+    // (which fires BEFORE onCommitted), so don't wipe them
     chrome.storage.session.remove([`tab_${tabId}`, `analysis_${tabId}`]);
     if (tabJsMap[tabId]) tabJsMap[tabId].clear();
-    Object.values(analyticsDetected).forEach(map => map.delete(tabId));
-    serverFingerprints.delete(tabId);
+    // Reset observation resources/scripts but keep main & headerHits
+    // (onHeadersReceived already set obs.main for the new navigation)
+    var obs = tabObservations.get(tabId);
+    if (obs) {
+      obs.resources = [];
+      obs.scripts = [];
+    }
   }
 });
 
 chrome.tabs.onRemoved.addListener((tabId) => {
   tabCountsCache.delete(tabId);
-  chrome.storage.session.remove([`tab_${tabId}`, `analysis_${tabId}`]);
+  chrome.storage.session.remove([`tab_${tabId}`, `analysis_${tabId}`, `stiffeyes_obs_main_${tabId}`, `stiffeyes_obs_hits_${tabId}`]);
   if (tabJsMap[tabId]) tabJsMap[tabId].clear();
-  Object.values(analyticsDetected).forEach(map => map.delete(tabId));
-  serverFingerprints.delete(tabId);
+  tabObservations.delete(tabId);
 });
 
-// ========== Fingerprint State ==========
-let serverFingerprints = new Map();
-const analyticsDetected = { baidu: new Map(), yahoo: new Map(), google: new Map() };
-
-function getFingerprints(tabId) {
-  if (serverFingerprints.has(tabId)) return serverFingerprints.get(tabId);
-  let fingerprints = {
-    server: [], component: [], technology: [], security: [],
-    analytics: [], builder: [], framework: [], os: [], panel: [], cdn: [],
-    nameMap: new Map()
-  };
-  serverFingerprints.set(tabId, fingerprints);
-  return fingerprints;
-}
-
-// ========== Analytics Detection ==========
-const analyticsPatterns = Object.entries(FINGERPRINT_CONFIG.ANALYTICS).map(([type, config]) => ({
-  pattern: config.pattern,
-  type: type
-}));
-
-function handleAnalyticsDetection(details, type) {
-  if (analyticsDetected[type].get(details.tabId)) return;
-  let fingerprints = getFingerprints(details.tabId);
-  analyticsDetected[type].set(details.tabId, true);
-  fingerprints.analytics.push({
-    name: FINGERPRINT_CONFIG.ANALYTICS[type].name,
-    description: FINGERPRINT_CONFIG.ANALYTICS[type].description,
-    version: FINGERPRINT_CONFIG.ANALYTICS[type].version
-  });
-  serverFingerprints.set(details.tabId, fingerprints);
-}
-
-// ========== webRequest: JS tracking + Analytics ==========
+// ========== webRequest: JS tracking + Cloud bucket ==========
 chrome.webRequest.onBeforeRequest.addListener(
   (details) => {
-    const matchedAnalytics = analyticsPatterns.find(item =>
-      details.url.match(new RegExp(item.pattern.replace(/[*]/g, '.*')))
-    );
-    if (matchedAnalytics) handleAnalyticsDetection(details, matchedAnalytics.type);
-
     const { tabId, url, type } = details;
 
     // === Cloud bucket URL detection (all request types) ===
@@ -141,80 +239,6 @@ chrome.webRequest.onBeforeRequest.addListener(
   []
 );
 
-// ========== Header + Cookie Fingerprint ==========
-function identifyTechnologyFromCookie(cookieHeader) {
-  for (const cookie of FINGERPRINT_CONFIG.COOKIES) {
-    if (cookie.match.test(cookieHeader)) {
-      return {
-        type: cookie.type,
-        name: cookie.name,
-        description: `通过cookie识别到网站使用${cookie.name}作为服务端${FINGERPRINT_CONFIG.DESCRIPTIONS.find(item => item.name === cookie.type)?.description || ''}`
-      };
-    }
-  }
-  return null;
-}
-
-function processHeaders(headers, tabId) {
-  let fingerprints = getFingerprints(tabId);
-  const headerMap = new Map(headers.map(h => [h.name.toLowerCase(), h.value]));
-  for (const config of FINGERPRINT_CONFIG.HEADERS) {
-    const headerValue = headerMap.get(config.header);
-    if (!headerValue) continue;
-    const result = headerValue.match(config.pattern);
-    if (!result || fingerprints.nameMap.has(config.name)) continue;
-
-    var fingerprint = Object.assign({}, config);
-    fingerprint['description'] = `通过${fingerprint.header}识别到网站使用${fingerprint.name}${FINGERPRINT_CONFIG.DESCRIPTIONS.find(item => item.name === config.type)?.description || ''}`;
-
-    if (config.extType && !fingerprints.nameMap.has(config.extName)) {
-      var ext = { type: config.extType, name: config.extName, header: config.header,
-        description: `通过${config.header}识别到网站使用${config.extName}${FINGERPRINT_CONFIG.DESCRIPTIONS.find(item => item.name === config.extType)?.description || ''}` };
-      fingerprints[ext.type].push(ext);
-      fingerprints.nameMap.set(config.extName, true);
-    }
-
-    if (config.value && result.length > 1) {
-      var i = 1;
-      for (const value of config.value.split(',')) {
-        fingerprint[value] = result[i] || null;
-        fingerprint['description'] += `，${FINGERPRINT_CONFIG.DESCRIPTIONS.find(item => item.name === value)?.description || ''}为${fingerprint[value] || '未知'}`;
-        i++;
-      }
-    } else if (config.value && result[0]) {
-      fingerprint[config.value] = result[0];
-      fingerprint['description'] += `，${FINGERPRINT_CONFIG.DESCRIPTIONS.find(item => item.name === config.value)?.description || ''}为${fingerprint[config.value] || '未知'}`;
-    }
-
-    fingerprints[config.type].push(fingerprint);
-    fingerprints.nameMap.set(config.name, true);
-  }
-  return fingerprints;
-}
-
-chrome.webRequest.onHeadersReceived.addListener(
-  async (details) => {
-    if (details.type !== 'main_frame') return { responseHeaders: details.responseHeaders };
-    if (!details.responseHeaders) return { responseHeaders: details.responseHeaders };
-    setTimeout(() => {
-      const fingerprints = processHeaders(details.responseHeaders, details.tabId);
-      serverFingerprints.set(details.tabId, fingerprints);
-      chrome.cookies.getAll({ url: details.url }, (cookies) => {
-        if (cookies.length > 0) {
-          const cookieNames = cookies.map(cookie => cookie.name).join(';');
-          const techFromCookies = identifyTechnologyFromCookie(cookieNames);
-          if (techFromCookies && !fingerprints.nameMap.has(techFromCookies.name)) {
-            fingerprints[techFromCookies.type].push(techFromCookies);
-            fingerprints.nameMap.set(techFromCookies.name, true);
-          }
-        }
-      });
-    }, 0);
-    return { responseHeaders: details.responseHeaders };
-  },
-  { urls: ['<all_urls>'] },
-  ['responseHeaders']
-);
 
 // ========== Cloud Bucket Passive Detection - Response Headers ==========
 chrome.webRequest.onHeadersReceived.addListener(
@@ -227,6 +251,137 @@ chrome.webRequest.onHeadersReceived.addListener(
   },
   { urls: ['<all_urls>'] },
   ['responseHeaders']
+);
+
+// ========== Resource Observation (for sniff engine) ==========
+chrome.webRequest.onHeadersReceived.addListener(
+  function (details) {
+    if (details.tabId < 0) return;
+    var obs = getObservation(details.tabId);
+    if (details.type === 'main_frame' && details.frameId === 0) {
+      obs.main = {
+        url: details.url,
+        statusCode: details.statusCode,
+        headers: normalizeHeaders(details.responseHeaders)
+      };
+      // Persist to session storage so raw headers survive SW restart
+      try {
+        var persistKey = 'stiffeyes_obs_main_' + details.tabId;
+        var persistObj = {};
+        persistObj[persistKey] = obs.main;
+        chrome.storage.session.set(persistObj).catch(function () {});
+      } catch (e) {}
+      // Run eager header fingerprint detection (matching SnowEyesPlus behavior)
+      // Save promise so GET_SNIFF_DATA can await it to avoid race conditions
+      obs._headerHitsPromise = _detectHeaderFingerprints(details).then(function (hits) {
+        obs.headerHits = hits;
+        obs.headerHitsUpdatedAt = Date.now();
+        obs._headerHitsPromise = null;
+        // Also persist header hits so they survive SW restart
+        try {
+          var hitsKey = 'stiffeyes_obs_hits_' + details.tabId;
+          var hitsObj = {};
+          hitsObj[hitsKey] = hits;
+          chrome.storage.session.set(hitsObj).catch(function () {});
+        } catch (e) {}
+        // If the popup is open waiting, notify it
+        chrome.runtime.sendMessage({
+          type: 'SNIFF_HEADER_HITS_READY',
+          tabId: details.tabId,
+          headerHits: hits
+        }).catch(function () {});
+        return hits;
+      }).catch(function (err) {
+        obs._headerHitsPromise = null;
+        console.warn('Header fingerprint detection failed:', err);
+        return [];
+      });
+    }
+    var entry = {
+      url: details.url,
+      type: details.type,
+      statusCode: details.statusCode,
+      fromCache: details.fromCache || false,
+      headers: normalizeHeaders(details.responseHeaders)
+    };
+    obs.resources.push(entry);
+    if (obs.resources.length > 800) obs.resources.shift();
+    if (details.type === 'script' || /\.m?js(?:[?#]|$)/i.test(details.url)) {
+      obs.scripts.push(entry);
+      if (obs.scripts.length > 300) obs.scripts.shift();
+    }
+    obs.updatedAt = Date.now();
+  },
+  { urls: ['<all_urls>'] },
+  ['responseHeaders']
+);
+
+
+
+// ========== HackBar Header Rewriting ==========
+chrome.webRequest.onBeforeSendHeaders.addListener(
+  function (details) {
+    var override = _hackbarHeaders.get(details.tabId);
+    if (!override) return {};
+
+    var headers = details.requestHeaders || [];
+    var hasReferer = false, hasUA = false, hasCookie = false;
+
+    for (var i = 0; i < headers.length; i++) {
+      var name = (headers[i].name || '').toLowerCase();
+      if (override.referer && name === 'referer') {
+        headers[i].value = override.referer;
+        hasReferer = true;
+      }
+      if (override.ua && name === 'user-agent') {
+        headers[i].value = override.ua;
+        hasUA = true;
+      }
+      if (override.cookie && name === 'cookie') {
+        headers[i].value = override.cookie;
+        hasCookie = true;
+      }
+    }
+
+    if (override.referer && !hasReferer) {
+      headers.push({ name: 'Referer', value: override.referer });
+    }
+    if (override.ua && !hasUA) {
+      headers.push({ name: 'User-Agent', value: override.ua });
+    }
+    if (override.cookie && !hasCookie) {
+      headers.push({ name: 'Cookie', value: override.cookie });
+    }
+
+    return { requestHeaders: headers };
+  },
+  { urls: ['<all_urls>'] },
+  ['blocking', 'requestHeaders', 'extraHeaders']
+);
+
+// ========== HackBar POST Data Capture ==========
+chrome.webRequest.onBeforeRequest.addListener(
+  function (details) {
+    if (details.method === 'POST' && details.requestBody) {
+      var formData = details.requestBody.formData;
+      if (formData) {
+        var parts = [];
+        for (var key in formData) {
+          if (formData.hasOwnProperty(key)) {
+            var val = Array.isArray(formData[key]) ? formData[key][0] : formData[key];
+            parts.push(key + '=' + val);
+          }
+        }
+        _hackbarPostData.set(details.tabId, {
+          url: details.url,
+          body: parts.join('&'),
+          timestamp: Date.now()
+        });
+      }
+    }
+  },
+  { urls: ['<all_urls>'] },
+  ['requestBody']
 );
 
 // ========== JS Fetching (2-layer fallback) ==========
@@ -615,25 +770,6 @@ chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
   if (msg.to && msg.to !== 'background') return false;
 
   switch (msg.type || msg.action) {
-    case 'UPDATE_BUILDER': {
-      let fingerprints = getFingerprints(sender.tab.id);
-      if (!fingerprints.nameMap.has(msg.finger.name)) {
-        if (msg.finger.extType && !fingerprints.nameMap.has(msg.finger.extName)) {
-          var extf = { type: msg.finger.extType, name: msg.finger.extName, header: msg.finger.name,
-            description: `通过${extf.header}识别到网站使用${extf.name}${FINGERPRINT_CONFIG.DESCRIPTIONS.find(function (item) { return item.name === msg.finger.extType; })?.description || ''}` };
-          fingerprints[extf.type].push(extf);
-          fingerprints.nameMap.set(msg.finger.extName, true);
-        }
-        fingerprints.nameMap.set(msg.finger.name, true);
-        fingerprints[msg.finger.type].push(msg.finger);
-        serverFingerprints.set(sender.tab.id, fingerprints);
-      }
-      return true;
-    }
-    case 'GET_FINGERPRINTS': {
-      sendResponse(getFingerprints(msg.tabId));
-      return true;
-    }
     case 'FETCH_JS': {
       var jsUrl = msg.url;
       var fetchTabId = resolveTabId(msg, sender);
@@ -723,17 +859,83 @@ chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
       });
       return true;
     }
+    case 'GET_SNIFF_DATA': {
+      var sniffTabId = msg.tabId || tabId;
+      if (!sniffTabId) { sendResponse({ main: null, resources: [], scripts: [], updatedAt: 0, headerHits: null }); return false; }
+      var obs = getObservation(sniffTabId);
+
+      // If observation is in memory, respond synchronously
+      if (obs.main) {
+        // If eager detection is still in-flight, wait for it
+        if (obs._headerHitsPromise) {
+          obs._headerHitsPromise.then(function () {
+            sendResponse({
+              main: obs.main,
+              resources: obs.resources || [],
+              scripts: obs.scripts || [],
+              updatedAt: obs.updatedAt || 0,
+              headerHits: obs.headerHits || null
+            });
+          }).catch(function () {
+            sendResponse({
+              main: obs.main,
+              resources: obs.resources || [],
+              scripts: obs.scripts || [],
+              updatedAt: obs.updatedAt || 0,
+              headerHits: null
+            });
+          });
+          return true;
+        }
+        sendResponse({
+          main: obs.main,
+          resources: obs.resources || [],
+          scripts: obs.scripts || [],
+          updatedAt: obs.updatedAt || 0,
+          headerHits: obs.headerHits || null
+        });
+        return false;
+      }
+
+      // SW may have restarted — recover from session storage
+      var mainKey = 'stiffeyes_obs_main_' + sniffTabId;
+      var hitsKey = 'stiffeyes_obs_hits_' + sniffTabId;
+      chrome.storage.session.get([mainKey, hitsKey]).then(function (cached) {
+        cached = cached || {};
+        if (cached[mainKey] && !obs.main) {
+          obs.main = cached[mainKey];
+          obs.updatedAt = obs.updatedAt || Date.now();
+        }
+        if (cached[hitsKey] && !obs.headerHits) {
+          obs.headerHits = cached[hitsKey];
+        }
+        sendResponse({
+          main: obs.main || null,
+          resources: obs.resources || [],
+          scripts: obs.scripts || [],
+          updatedAt: obs.updatedAt || 0,
+          headerHits: obs.headerHits || null
+        });
+      }).catch(function () {
+        sendResponse({
+          main: null,
+          resources: [],
+          scripts: [],
+          updatedAt: 0,
+          headerHits: null
+        });
+      });
+      return true;
+    }
     case 'GET_SCAN_RESULTS': {
       Promise.all([
         tabId ? loadSession(tabId, 'scan') : Promise.resolve(null),
-        tabId ? loadSession(tabId, 'finger') : Promise.resolve(null),
         tabId ? loadSession(tabId, 'springResults') : Promise.resolve(null),
         tabId ? loadSession(tabId, 'spring') : Promise.resolve(null)
       ]).then(function (arr) {
         var scan = arr[0];
         if (scan && StiffEyesPatterns.normalizeScanResult) StiffEyesPatterns.normalizeScanResult(scan);
-        var finger = arr[1] || [];
-        sendResponse({ scan: scan, fingerprints: finger, springResults: arr[2] || '', springState: arr[3] || null });
+        sendResponse({ scan: scan, springResults: arr[1] || '', springState: arr[2] || null });
       });
       return true;
     }
@@ -829,6 +1031,81 @@ chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
       persistCloudBuckets();
       sendResponse({ ok: true });
       return false;
+    }
+
+    // ========== HackBar ==========
+    case 'HACKBAR_LOAD_URL': {
+      var hackbarTabId = msg.tabId || tabId;
+      chrome.tabs.get(hackbarTabId, function (tab) {
+        if (chrome.runtime.lastError) {
+          sendResponse({ url: null, postData: null, headers: null });
+          return;
+        }
+        var postEntry = _hackbarPostData.get(hackbarTabId);
+        var headerEntry = _hackbarHeaders.get(hackbarTabId) || null;
+        sendResponse({
+          url: tab.url || null,
+          postData: postEntry ? postEntry.body : null,
+          headers: headerEntry
+        });
+      });
+      return true;
+    }
+
+    case 'HACKBAR_SET_HEADERS': {
+      if (tabId == null) { sendResponse({ ok: false }); return false; }
+      _hackbarHeaders.set(tabId, {
+        referer: msg.headers.referer || null,
+        ua: msg.headers.ua || null,
+        cookie: msg.headers.cookie || null
+      });
+      sendResponse({ ok: true });
+      return false;
+    }
+
+    case 'HACKBAR_CLEAR_HEADERS': {
+      if (tabId == null) { sendResponse({ ok: false }); return false; }
+      _hackbarHeaders.delete(tabId);
+      sendResponse({ ok: true });
+      return false;
+    }
+
+    case 'HACKBAR_EXECUTE': {
+      var execTabId = msg.tabId || tabId;
+      if (!execTabId) { sendResponse({ ok: false, error: 'no_tab' }); return false; }
+      var execUrl = msg.url;
+      if (msg.method === 'POST') {
+        chrome.scripting.executeScript({
+          target: { tabId: execTabId },
+          world: 'MAIN',
+          func: function (url, params) {
+            var form = document.createElement('form');
+            form.method = 'POST';
+            form.action = url;
+            form.style.display = 'none';
+            var keys = Object.keys(params);
+            for (var i = 0; i < keys.length; i++) {
+              var input = document.createElement('input');
+              input.type = 'hidden';
+              input.name = keys[i];
+              input.value = params[keys[i]];
+              form.appendChild(input);
+            }
+            document.body.appendChild(form);
+            form.submit();
+          },
+          args: [execUrl, msg.postParams || {}]
+        }).then(function () {
+          sendResponse({ ok: true });
+        }).catch(function (err) {
+          sendResponse({ ok: false, error: err.message });
+        });
+      } else {
+        chrome.tabs.update(execTabId, { url: execUrl }, function () {
+          sendResponse({ ok: true });
+        });
+      }
+      return true;
     }
   }
   return false;
