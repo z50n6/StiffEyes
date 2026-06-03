@@ -335,12 +335,9 @@ var StiffEyesToolsPanel = (function () {
 
   function switchTool(toolId) {
     if (!toolId) {
-      // 未选择工具：显示空状态提示
       activeTool = '';
       var uaPanel = $('toolsPanelUa');
-      var emptyHint = $('toolsEmptyHint');
       if (uaPanel) uaPanel.classList.add('hidden');
-      if (emptyHint) emptyHint.classList.remove('hidden');
       $('toolsBtnReset').classList.add('hidden');
       $('toolsBtnTest').classList.add('hidden');
       $('toolsStatusBar').classList.add('hidden');
@@ -348,11 +345,9 @@ var StiffEyesToolsPanel = (function () {
     }
 
     activeTool = toolId;
-    var uaPanel2 = $('toolsPanelUa');
-    var emptyHint2 = $('toolsEmptyHint');
-    if (emptyHint2) emptyHint2.classList.add('hidden');
 
     if (toolId === 'ua-switcher') {
+      var uaPanel2 = $('toolsPanelUa');
       if (uaPanel2) uaPanel2.classList.remove('hidden');
       renderBrowserSelect();
       renderPlatformSelect('Chrome');
