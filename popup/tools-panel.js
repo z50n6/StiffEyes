@@ -83,6 +83,8 @@ var StiffEyesToolsPanel = (function () {
     { browser:'IE',  platform:'Windows', version:'11.0', label:'IE 11 · Windows 10/11',  ua:'Mozilla/5.0 (Windows NT 10.0; WOW64; Trident/7.0; rv:11.0) like Gecko' },
     { browser:'IE',  platform:'Windows', version:'10.0', label:'IE 10 · Windows 8',     ua:'Mozilla/5.0 (compatible; MSIE 10.0; Windows NT 6.2; Trident/6.0)' },
     { browser:'IE',  platform:'Windows', version:'9.0',  label:'IE 9 · Windows 7',      ua:'Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1; Trident/5.0)' },
+    { browser:'IE',  platform:'macOS',   version:'5.5',  label:'IE 5.5 · Mac OS X',     ua:'Mozilla/4.0 (compatible; MSIE 5.5; Mac_PowerPC)' },
+    { browser:'IE',  platform:'Linux',   version:'11.0', label:'IE 11 (模拟) · Linux',   ua:'Mozilla/5.0 (X11; Linux x86_64; Trident/7.0; rv:11.0) like Gecko' },
 
     // ---- Mobile Chrome (额外版本) ----
     { browser:'Chrome', platform:'Android', version:'128.0', label:'Chrome 128 · Android 14', ua:'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.6613.88 Mobile Safari/537.36' },
@@ -116,7 +118,7 @@ var StiffEyesToolsPanel = (function () {
     Safari:   ['macOS','iOS'],
     WeChat:   ['Android','iOS'],
     Huawei:   ['Android'],
-    IE:       ['Windows'],
+    IE:       ['Windows','macOS','Linux'],
     Android:  ['Android'],
     Edge:     ['Windows','macOS'],
     Opera:    ['Windows','macOS'],
