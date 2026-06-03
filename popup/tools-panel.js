@@ -333,22 +333,25 @@ var StiffEyesToolsPanel = (function () {
 
   // ==================== 工具切换 ====================
 
-  function switchTool(toolId) {
-    if (!toolId) {
-      activeTool = '';
-      var uaPanel = $('toolsPanelUa');
-      if (uaPanel) uaPanel.classList.add('hidden');
-      $('toolsBtnReset').classList.add('hidden');
-      $('toolsBtnTest').classList.add('hidden');
-      $('toolsStatusBar').classList.add('hidden');
-      return;
-    }
+  function showDropdown() {
+    activeTool = '';
+    var dropdown = $('toolsDropdown');
+    var uaPanel = $('toolsPanelUa');
+    if (dropdown) dropdown.classList.remove('hidden');
+    if (uaPanel) uaPanel.classList.add('hidden');
+    $('toolsBtnReset').classList.add('hidden');
+    $('toolsBtnTest').classList.add('hidden');
+    $('toolsStatusBar').classList.add('hidden');
+  }
 
+  function switchTool(toolId) {
     activeTool = toolId;
+    var dropdown = $('toolsDropdown');
+    if (dropdown) dropdown.classList.add('hidden');
 
     if (toolId === 'ua-switcher') {
-      var uaPanel2 = $('toolsPanelUa');
-      if (uaPanel2) uaPanel2.classList.remove('hidden');
+      var uaPanel = $('toolsPanelUa');
+      if (uaPanel) uaPanel.classList.remove('hidden');
       renderBrowserSelect();
       renderPlatformSelect('Chrome');
       renderMatchList('Chrome', 'Windows');
@@ -359,6 +362,24 @@ var StiffEyesToolsPanel = (function () {
   // ==================== 事件 ====================
 
   function wireEvents() {
+    // 悬浮下拉菜单项点击
+    var dropdown = $('toolsDropdown');
+    if (dropdown) {
+      dropdown.querySelectorAll('.tools-dropdown-item').forEach(function (item) {
+        item.addEventListener('click', function () {
+          switchTool(item.dataset.tool);
+        });
+      });
+    }
+
+    // 返回按钮
+    var backBtn = $('toolsBackBtn');
+    if (backBtn) {
+      backBtn.addEventListener('click', function () {
+        showDropdown();
+      });
+    }
+
     var browserSel = $('toolsUaBrowser');
     var platformSel = $('toolsUaPlatform');
 
@@ -374,13 +395,6 @@ var StiffEyesToolsPanel = (function () {
       platformSel.addEventListener('change', function () {
         selectedIndex = -1;
         renderMatchList(browserSel?.value || 'Chrome', platformSel.value);
-      });
-    }
-
-    var toolSel = $('toolsSelect');
-    if (toolSel) {
-      toolSel.addEventListener('change', function () {
-        switchTool(toolSel.value);
       });
     }
 
@@ -407,9 +421,8 @@ var StiffEyesToolsPanel = (function () {
       wireEvents();
       initialized = true;
     }
-    // 初始显示下拉选择，不展示任何工具
-    $('toolsSelect').value = '';
-    switchTool('');
+    // 初始显示悬浮下拉
+    showDropdown();
     restoreState();
   }
 

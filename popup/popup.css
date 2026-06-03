@@ -2512,6 +2512,7 @@ textarea:focus {
 #panel-tools {
   max-height: 480px;
   overflow: hidden;
+  position: relative;
 }
 
 #panel-tools.active {
@@ -2533,8 +2534,40 @@ textarea:focus {
   scrollbar-color: #3f3f46 transparent;
 }
 
-/* ── 工具选择头部 ── */
-.tools-head {
+/* ── 悬浮下拉菜单 ── */
+.tools-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 8px;
+  right: 8px;
+  z-index: 10;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+  overflow: hidden;
+}
+
+.tools-dropdown-item {
+  padding: 10px 14px;
+  font-size: 12px;
+  color: var(--text);
+  cursor: pointer;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  transition: background 0.1s;
+}
+
+.tools-dropdown-item:last-child {
+  border-bottom: none;
+}
+
+.tools-dropdown-item:hover {
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+}
+
+/* ── 工具面板头部 ── */
+.tools-panel-head {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -2543,30 +2576,22 @@ textarea:focus {
   flex-shrink: 0;
 }
 
-.tools-head-label {
-  font-size: 11px;
-  font-weight: 600;
+.tools-back-btn {
+  padding: 3px 8px;
+  font-size: 10px;
+  font-family: var(--font);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: transparent;
   color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.12s;
   flex-shrink: 0;
 }
 
-.tools-select {
-  flex: 1;
-  padding: 4px 6px;
-  font-size: 11px;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  background: var(--bg-surface);
-  color: var(--text);
-  cursor: pointer;
-  font-family: var(--font);
-  max-width: 240px;
-}
-
-.tools-select:focus {
-  outline: none;
+.tools-back-btn:hover {
   border-color: var(--accent);
-  box-shadow: 0 0 0 2px var(--glow);
+  color: var(--accent);
 }
 
 .tools-btn-action {

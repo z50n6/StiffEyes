@@ -294,19 +294,18 @@
     <!-- ====== 工具面板 ====== -->
     <section id="panel-tools" class="panel">
       <div class="tools-body">
-        <!-- 工具选择栏 -->
-        <div class="tools-head">
-          <label class="tools-head-label">选择工具</label>
-          <select class="tools-select" id="toolsSelect">
-            <option value="">-- 选择工具 --</option>
-            <option value="ua-switcher">UserAgent-Switcher</option>
-          </select>
-          <button type="button" class="tools-btn-action hidden" id="toolsBtnReset">重置UA</button>
-          <button type="button" class="tools-btn-action hidden" id="toolsBtnTest">测试UA</button>
+        <!-- 悬浮下拉菜单（定位在Tab下方） -->
+        <div class="tools-dropdown hidden" id="toolsDropdown">
+          <div class="tools-dropdown-item" data-tool="ua-switcher">UserAgent-Switcher</div>
         </div>
 
         <!-- UA-Switcher 面板 -->
         <div class="tools-tool-panel hidden" id="toolsPanelUa">
+          <div class="tools-panel-head">
+            <button type="button" class="tools-back-btn" id="toolsBackBtn" title="返回工具列表">← 返回</button>
+            <button type="button" class="tools-btn-action hidden" id="toolsBtnReset">重置UA</button>
+            <button type="button" class="tools-btn-action hidden" id="toolsBtnTest">测试UA</button>
+          </div>
           <!-- 浏览器 + 平台双筛选 -->
           <div class="tools-filter-row">
             <label class="tools-filter-label">浏览器</label>
