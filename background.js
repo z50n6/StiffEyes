@@ -297,6 +297,7 @@ chrome.webRequest.onHeadersReceived.addListener(
         console.warn('Header fingerprint detection failed:', err);
         return [];
       });
+    });  // closes setTimeout
     }
     var entry = {
       url: details.url,
