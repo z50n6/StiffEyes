@@ -750,9 +750,7 @@ var sniffState = {
   findings: [],
   running: false,
   loaded: false,
-  cache: {},
   compiledStore: null,
-  storeLoading: false,
   storePromise: null
 };
 
@@ -1028,16 +1026,21 @@ function exportSniffResults() {
 async function openSniff() {
   if (sniffState.running) return;
 
-  // Check cache (includes URL hash to bust on page refresh)
-  var key = sniffCacheKey(currentTabId, currentTabUrl);
-  var cached = sniffState.cache[key];
-  if (cached && (Date.now() - cached.time < 600000)) {
-    sniffState.findings = cached.findings;
-    renderSniffResults(cached.findings);
-    setSniffStatus('✔', '已识别 ' + cached.findings.length + ' 项技术 (缓存)', 'ok');
-    sniffState.loaded = true;
-    return;
-  }
+  // 优先从 sessionStorage 读取缓存（弹窗关闭后仍保留，同一站点无需重新识别）
+  var key = 'ss_sniff_' + sniffCacheKey(currentTabId, currentTabUrl);
+  try {
+    var raw = sessionStorage.getItem(key);
+    if (raw) {
+      var cached = JSON.parse(raw);
+      if (cached && cached.findings && (Date.now() - cached.time < 600000)) {
+        sniffState.findings = cached.findings;
+        renderSniffResults(cached.findings);
+        setSniffStatus('✔', '已识别 ' + cached.findings.length + ' 项技术', 'ok');
+        sniffState.loaded = true;
+        return;
+      }
+    }
+  } catch (e) { /* 缓存读取失败，重新检测 */ }
 
   sniffState.running = true;
   setSniffStatus('●', '正在采集页面信号…', 'busy');
@@ -1093,7 +1096,7 @@ async function openSniff() {
     var findings = merged.map(function (h) { return StiffEyesSniff.convertHit(h); });
 
     sniffState.findings = findings;
-    sniffState.cache[key] = { findings: findings, time: Date.now() };
+    try { sessionStorage.setItem(key, JSON.stringify({ findings: findings, time: Date.now() })); } catch (e) {}
     sniffState.loaded = true;
 
     renderSniffResults(findings);
@@ -1113,8 +1116,8 @@ async function openSniff() {
 
 // Wire up sniff buttons
 $('btnSniffRefresh').addEventListener('click', function () {
-  var key = sniffCacheKey(currentTabId, currentTabUrl);
-  delete sniffState.cache[key];
+  var key = 'ss_sniff_' + sniffCacheKey(currentTabId, currentTabUrl);
+  try { sessionStorage.removeItem(key); } catch (e) {}
   sniffState.compiledStore = null;
   sniffState.storePromise = null;
   openSniff();
@@ -1131,17 +1134,12 @@ async function init() {
   currentTabId = tab.id;
   currentTabUrl = tab.url || '';
 
-  // Clear sniff cache on popup reopen — ensures fresh detection
-  // (handles edge case where Chrome restores popup from memory)
-  sniffState = {
-    findings: [],
-    running: false,
-    loaded: false,
-    cache: {},
-    compiledStore: null,
-    storeLoading: false,
-    storePromise: null
-  };
+  // 重置运行时状态（sessionStorage 缓存的检测结果不受影响）
+  sniffState.findings = [];
+  sniffState.running = false;
+  sniffState.loaded = false;
+  sniffState.compiledStore = null;
+  sniffState.storePromise = null;
 
   try {
     const u = new URL(tab.url || '');
