@@ -67,7 +67,17 @@ var StiffEyesToolsPanel = (function () {
     // ---- Crawlers ----
     { browser:'Googlebot', platform:'-', version:'2.1', label:'Googlebot (Smartphone)',  ua:'Mozilla/5.0 (Linux; Android 6.0.1; Nexus 5X Build/MMB29P) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.6778.135 Mobile Safari/537.36 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)' },
     { browser:'Googlebot', platform:'-', version:'2.1', label:'Googlebot (Desktop)',     ua:'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)' },
-    { browser:'Bingbot',   platform:'-', version:'2.0', label:'Bingbot',                 ua:'Mozilla/5.0 (compatible; bingbot/2.0; +http://www.bing.com/bingbot.htm)' }
+    { browser:'Bingbot',   platform:'-', version:'2.0', label:'Bingbot',                 ua:'Mozilla/5.0 (compatible; bingbot/2.0; +http://www.bing.com/bingbot.htm)' },
+
+    // ---- WeChat ----
+    { browser:'WeChat',  platform:'Android', version:'8.0',  label:'WeChat 8.0 · Android 14',   ua:'Mozilla/5.0 (Linux; Android 14; 22127RK46C Build/TKQ1.220905.001; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/107.0.5304.141 Mobile Safari/537.36 XWEB/5127 MMWEBSDK/20230604 MMWEBID/7189 MicroMessenger/8.0.38.2400(0x28002639) WeChat/arm64 Weixin NetType/WIFI Language/zh_CN ABI/arm64' },
+    { browser:'WeChat',  platform:'Android', version:'7.0',  label:'WeChat 7.0 · Android 10',   ua:'Mozilla/5.0 (Linux; Android 10; Nexus 5 Build/MRA58N; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/99.0.4844.51 Mobile Safari/537.36 MicroMessenger/7.0.1' },
+    { browser:'WeChat',  platform:'iOS',     version:'8.0',  label:'WeChat 8.0 · iOS 17',        ua:'Mozilla/5.0 (iPhone; CPU iPhone OS 17_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 MicroMessenger/8.0.43(0x18002b2e) NetType/WIFI Language/zh_CN' },
+    { browser:'WeChat',  platform:'iOS',     version:'7.0',  label:'WeChat 7.0 · iOS 12',        ua:'Mozilla/5.0 (iPhone; CPU iPhone OS 12_3_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 MicroMessenger/7.0.12(0x17000c2f) NetType/4G Language/zh_CN' },
+
+    // ---- 华为浏览器 ----
+    { browser:'Huawei',  platform:'Android', version:'15.0', label:'华为浏览器 15.0 · Android 14', ua:'Mozilla/5.0 (Linux; Android 14; ELS-NX9; HMSCore 6.15.0.322) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.5735.196 HuaweiBrowser/15.0.10.302 Mobile Safari/537.36' },
+    { browser:'Huawei',  platform:'Android', version:'14.0', label:'华为浏览器 14.0 · Android 13', ua:'Mozilla/5.0 (Linux; Android 13; NOP-AN00; HMSCore 6.14.0.312) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.5359.128 HuaweiBrowser/14.0.10.302 Mobile Safari/537.36' }
   ];
 
   var BROWSERS = [
@@ -79,7 +89,9 @@ var StiffEyesToolsPanel = (function () {
     { id:'Brave',    name:'Brave' },
     { id:'Vivaldi',  name:'Vivaldi' },
     { id:'Googlebot',name:'Googlebot' },
-    { id:'Bingbot',  name:'Bingbot' }
+    { id:'Bingbot',  name:'Bingbot' },
+    { id:'WeChat',   name:'WeChat' },
+    { id:'Huawei',   name:'华为浏览器' }
   ];
 
   // 每个浏览器支持的平台
@@ -87,6 +99,8 @@ var StiffEyesToolsPanel = (function () {
     Chrome:   ['Windows','macOS','Linux','Android','ChromeOS'],
     Firefox:  ['Windows','macOS','Linux','Android'],
     Safari:   ['macOS','iOS'],
+    WeChat:   ['Android','iOS'],
+    Huawei:   ['Android'],
     Edge:     ['Windows','macOS'],
     Opera:    ['Windows','macOS'],
     Brave:    ['Windows','macOS'],

@@ -2717,8 +2717,8 @@ textarea:focus {
 .tools-custom-input {
   flex: 1;
   min-width: 0;
-  padding: 5px 8px;
-  font-size: 10px;
+  padding: 6px 10px;
+  font-size: 11px;
   font-family: var(--mono);
   border: 1px solid var(--border);
   border-radius: 4px;
