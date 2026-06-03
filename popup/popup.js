@@ -1043,54 +1043,61 @@ async function openSniff() {
   } catch (e) { /* 缓存读取失败，重新检测 */ }
 
   sniffState.running = true;
-  setSniffStatus('●', '正在采集页面信号…', 'busy');
 
   try {
-    // 1. Collect signals in parallel
+    // 阶段1：先获取后台预计算的 Header 命中（极快，<100ms）
+    setSniffStatus('●', '正在识别…', 'busy');
+    var bg = await collectSniffBackgroundData().catch(function (e) { console.warn('Background data failed:', e); return {}; });
+    var headerHits = (bg && Array.isArray(bg.headerHits)) ? bg.headerHits : [];
+
+    // 如果有 Header 命中，立即展示初筛结果
+    if (headerHits.length) {
+      var initialFindings = headerHits.map(function (h) { return StiffEyesSniff.convertHit(h); });
+      renderSniffResults(initialFindings);
+      setSniffStatus('●', '已发现 ' + initialFindings.length + ' 项 · 正在深度识别…', 'busy');
+    }
+
+    // 阶段2：采集页面 DOM 信号（较慢，内容脚本通信）
     var results = await Promise.all([
       collectSniffPageSignals().catch(function (e) { console.warn('Page signals failed:', e); return {}; }),
-      collectSniffRuntimeSignals().catch(function (e) { console.warn('Runtime signals failed:', e); return {}; }),
-      collectSniffBackgroundData().catch(function (e) { console.warn('Background data failed:', e); return {}; })
+      collectSniffRuntimeSignals().catch(function (e) { console.warn('Runtime signals failed:', e); return {}; })
     ]);
     var page = results[0];
     var runtime = results[1];
-    var bg = results[2];
 
-    // 2. Build DOM signal input
+    if (!headerHits.length && !Object.keys(page).length && !Object.keys(runtime).length && !Object.keys(bg).length) {
+      // 无任何信号，跳过检测
+      renderSniffResults([]);
+      setSniffStatus('✔', '未识别到任何技术栈特征', 'ok');
+      return;
+    }
+
+    // 阶段3：将 DOM 检测委托给后台
     var domInput = StiffEyesSniffSignals.buildDomInput(page, runtime, bg);
-
-    // 3. 将指纹检测委托给后台 Service Worker（避免 UI 线程阻塞）
-    setSniffStatus('●', '正在分析技术栈…', 'busy');
     var detectionResult = await new Promise(function (resolve) {
       chrome.runtime.sendMessage({
         type: 'SNIFF_RUN_DETECTION',
         tabId: currentTabId,
         domInput: domInput
       }, function (resp) {
-        resolve(resp || { headerHits: [], domHits: [], merged: [] });
+        resolve(resp || { headerHits: headerHits, domHits: [], merged: headerHits });
       });
     });
-    var merged = detectionResult.merged || [];
-    var structuredRules = window.StiffEyesSniffRules || [];
-    var structuredHits = [];
-    if (structuredRules.length && typeof StiffEyesSniff.matchStructuredRules === 'function') {
-      structuredHits = StiffEyesSniff.matchStructuredRules(structuredRules, page, runtime, bg);
-    }
+    var merged = detectionResult.merged || headerHits || [];
 
-    // 4. 合并结构化规则命中（结构化规则在同名碰撞时优先）
-    if (structuredHits.length) {
-      var mergedByName = {};
-      merged.forEach(function (h) {
-        mergedByName[String(h.name || '').toLowerCase()] = h;
-      });
-      structuredHits.forEach(function (h) {
-        var nk = String(h.name || '').toLowerCase();
-        // Structured rules have higher specificity — replace on collision
-        if (!mergedByName[nk] || (h.score || 0) >= (mergedByName[nk].score || 0)) {
-          mergedByName[nk] = h;
-        }
-      });
-      merged = Object.values(mergedByName);
+    // 阶段4：结构化规则匹配
+    var structuredRules = window.StiffEyesSniffRules || [];
+    if (structuredRules.length && typeof StiffEyesSniff.matchStructuredRules === 'function') {
+      var structuredHits = StiffEyesSniff.matchStructuredRules(structuredRules, page, runtime, bg);
+      if (structuredHits.length) {
+        var mergedByName = {};
+        merged.forEach(function (h) { mergedByName[String(h.name || '').toLowerCase()] = h; });
+        structuredHits.forEach(function (h) {
+          var nk = String(h.name || '').toLowerCase();
+          if (!mergedByName[nk] || (h.score || 0) >= (mergedByName[nk].score || 0)) mergedByName[nk] = h;
+        });
+        merged = Object.values(mergedByName);
+      }
     }
 
     var findings = merged.map(function (h) { return StiffEyesSniff.convertHit(h); });
