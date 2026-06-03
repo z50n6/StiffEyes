@@ -25,6 +25,51 @@ var StiffEyesJwtPanel = (function () {
     if (desc) desc.textContent = StiffEyesJwt.getAlgDescription(state.alg);
   }
 
+  /** 根据算法类型切换密钥区域 UI */
+  function syncKeySection() {
+    var cat = StiffEyesJwt.getAlgCategory(state.alg);
+    var isHmac = cat === 'hmac';
+    var secretEl = $('jwtSecret');
+    var keyInfo = $('jwtKeyInfo');
+    var btnGen = $('jwtBtnGenKey');
+
+    // HMAC 显示密钥输入；非对称显示生成密钥按钮
+    secretEl.classList.toggle('hidden', !isHmac);
+    if (btnGen) btnGen.classList.toggle('hidden', isHmac);
+    if (keyInfo) {
+      var pair = StiffEyesJwt.getKeyPair();
+      if (!isHmac && pair.pub) {
+        keyInfo.textContent = '已加载密钥 · kid: ' + (pair.pub.kid || '—').slice(0, 8);
+        keyInfo.classList.remove('hidden');
+      } else if (!isHmac) {
+        keyInfo.textContent = '未加载密钥对';
+        keyInfo.classList.remove('hidden');
+      } else {
+        keyInfo.classList.add('hidden');
+      }
+    }
+  }
+
+  /** 验证当前令牌签名 */
+  async function verifyAndReport() {
+    var s = readState();
+    var token = s.target || s.source;
+    if (!token || !token.trim() || token.split('.').length < 3) return;
+    var cat = StiffEyesJwt.getAlgCategory(s.alg);
+    if (!cat) return;
+
+    try {
+      var result = await StiffEyesJwt.verify(token, s.secret, s.alg);
+      if (result.valid) {
+        setStatus('签名有效 · ' + s.alg);
+      } else {
+        setStatus(result.error, true);
+      }
+    } catch (e) {
+      /* 验证异常静默忽略 */
+    }
+  }
+
   function readState() {
     return {
       source: $('jwtSource')?.value || '',
@@ -48,6 +93,8 @@ var StiffEyesJwtPanel = (function () {
         alg: s.alg
       });
       $('jwtTarget').value = token;
+      // 同时验证签名
+      verifyAndReport();
     } catch (e) {
       setStatus(String(e.message || e), true);
     }
@@ -65,8 +112,10 @@ var StiffEyesJwtPanel = (function () {
         syncAlgDesc();
       }
       StiffEyesJwt.clearKeyPair();
+      syncKeySection();
       setStatus('已解码');
       refreshTarget();
+      verifyAndReport();
     } catch (e) {
       setStatus(String(e.message || e), true);
     }
@@ -80,6 +129,7 @@ var StiffEyesJwtPanel = (function () {
     $('jwtTarget').value = '';
     $('jwtSecret').value = '';
     StiffEyesJwt.clearKeyPair();
+    syncKeySection();
     setStatus('已清空');
   }
 
@@ -163,8 +213,9 @@ var StiffEyesJwtPanel = (function () {
         state.alg,
         pair
       );
+      syncKeySection();
       await refreshTarget();
-      setStatus('JWK 注入完成');
+      setStatus('JWK 注入完成 · kid: ' + (pair.pub.kid || '').slice(0, 8));
     } catch (e) {
       setStatus(String(e.message || e), true);
     }
@@ -188,7 +239,7 @@ var StiffEyesJwtPanel = (function () {
       hint.textContent = 'JKU: ' + jku;
       hint.classList.remove('hidden');
       await refreshTarget();
-      setStatus('JKU 注入完成（目标需能访问 JKU URL，扩展内 URL 通常不可被远程拉取，请自行托管 exploit.json）');
+      setStatus('JKU 注入完成 · JKU: ' + jku.split('/').pop());
     } catch (e) {
       setStatus(String(e.message || e), true);
     }
@@ -223,6 +274,7 @@ var StiffEyesJwtPanel = (function () {
     $('jwtAlgSelect').addEventListener('change', function () {
       state.alg = $('jwtAlgSelect').value;
       syncAlgDesc();
+      syncKeySection();
       try {
         var h = JSON.parse($('jwtHeader').value || '{}');
         if (h.alg) {
@@ -242,6 +294,16 @@ var StiffEyesJwtPanel = (function () {
     $('jwtBtnNone').addEventListener('click', runNone);
     $('jwtBtnNoSign').addEventListener('click', runNoSign);
     $('jwtBtnBrute').addEventListener('click', runBrute);
+    $('jwtBtnGenKey').addEventListener('click', async function () {
+      try {
+        var pair = await StiffEyesJwt.generateJwk(state.alg);
+        syncKeySection();
+        setStatus('密钥对已生成 · kid: ' + (pair.pub.kid || '').slice(0, 8));
+        await refreshTarget();
+      } catch (e) {
+        setStatus(String(e.message || e), true);
+      }
+    });
     $('jwtBtnJwk').addEventListener('click', runJwkInjection);
     $('jwtBtnJku').addEventListener('click', runJkuInjection);
     $('jwtBtnKid').addEventListener('click', runKidPath);
@@ -254,6 +316,7 @@ var StiffEyesJwtPanel = (function () {
       initialized = true;
     }
     syncAlgDesc();
+    syncKeySection();
     setStatus('');
   }
 

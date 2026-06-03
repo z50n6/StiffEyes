@@ -2097,7 +2097,9 @@ textarea:focus {
   border-radius: 2px;
 }
 
-/* —— JWT 测试（紧凑布局） —— */
+/* ============================================================
+   JWT 面板 — 紧凑三列工坊布局
+   ============================================================ */
 #panel-jwt {
   max-height: 480px;
   overflow: hidden;
@@ -2117,20 +2119,20 @@ textarea:focus {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 6px 8px 8px;
+  gap: 5px;
+  padding: 8px 10px 10px;
   overflow-y: auto;
   overflow-x: hidden;
   scrollbar-width: thin;
   scrollbar-color: #3f3f46 transparent;
 }
 
-/* 头部：单行 JWT + 密钥 + 算法 */
+/* ── 头部栏 ── */
 .jwt-head {
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding-bottom: 4px;
+  gap: 5px;
+  padding: 2px 0 5px;
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
   min-width: 0;
@@ -2141,12 +2143,26 @@ textarea:focus {
   border: none;
   background: transparent;
   color: var(--accent);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.03em;
   cursor: pointer;
-  padding: 2px 4px;
+  padding: 3px 6px;
+  margin-left: -3px;
   border-radius: var(--radius-sm);
+  position: relative;
+}
+
+/* 左侧 accent 装饰线 */
+.jwt-title-btn::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 4px;
+  bottom: 4px;
+  width: 2px;
+  border-radius: 1px;
+  background: var(--accent);
 }
 
 .jwt-title-btn:hover {
@@ -2155,8 +2171,9 @@ textarea:focus {
 }
 
 .jwt-input-inline {
-  padding: 2px 4px;
-  font-size: 10px;
+  padding: 3px 5px;
+  font-size: 11px;
+  height: 26px;
   border: 1px solid var(--border);
   border-radius: 4px;
   background: var(--bg-surface);
@@ -2174,40 +2191,93 @@ textarea:focus {
 #jwtSecret {
   flex: 1;
   min-width: 60px;
-  max-width: 140px;
+  max-width: 160px;
+  font-family: var(--mono);
 }
 
 .jwt-alg-select {
-  flex: 0 0 64px;
+  flex: 0 0 72px;
+  padding: 1px 2px;
   cursor: pointer;
+  font-family: var(--mono);
 }
 
 .jwt-alg-desc {
-  display: none;
+  flex: 1;
+  min-width: 0;
+  font-size: 9px;
+  font-family: var(--mono);
+  color: var(--text-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.3;
+  padding-top: 1px;
 }
 
-/* 标签行 */
+/* ── 标签行 ── */
 .jwt-row {
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 2px 0 0;
+  gap: 5px;
+  padding: 1px 0 0;
   flex-shrink: 0;
   min-width: 0;
 }
 
 .jwt-label {
-  font-size: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
   font-weight: 600;
   color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.04em;
   flex-shrink: 0;
 }
 
-/* 超小按钮（内联用） */
+/* 标签上的 accent 小点 */
+.jwt-label::before {
+  content: '';
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex-shrink: 0;
+  opacity: 0.8;
+}
+
+/* JWT 三部件颜色标识 — 参考 JOSE 标准分段 */
+.jwt-dot-hdr::before { background: #f472b6; }  /* 粉 — Header  */
+.jwt-dot-pay::before { background: #a78bfa; }  /* 紫 — Payload */
+.jwt-dot-sig::before { background: #2dd4bf; }  /* 青 — Signature */
+/* 源令牌和目标令牌保持默认 teal */
+
+/* 密钥信息提示条 */
+.jwt-key-info {
+  display: block;
+  margin: 0;
+  padding: 2px 6px;
+  font-size: 9px;
+  font-family: var(--mono);
+  color: var(--text-muted);
+  background: var(--bg-muted);
+  border-radius: 3px;
+  line-height: 1.35;
+  flex-shrink: 0;
+  word-break: break-all;
+}
+
+/* 生成密钥对按钮 */
+.jwt-btn-genkey {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+/* ── 内联小按钮 ── */
 .jwt-btn-xs {
-  padding: 1px 5px;
+  padding: 1px 6px;
   font-size: 10px;
   font-family: var(--font);
   border: 1px solid var(--border-strong);
@@ -2216,7 +2286,7 @@ textarea:focus {
   color: var(--text-muted);
   cursor: pointer;
   transition: background 0.12s, border-color 0.12s, color 0.12s;
-  line-height: 1.3;
+  line-height: 1.35;
   flex-shrink: 0;
 }
 
@@ -2233,25 +2303,25 @@ textarea:focus {
 }
 
 .jwt-btn-xs.jwt-btn-primary:hover {
-  background: rgba(45, 212, 191, 0.2);
+  background: rgba(45, 212, 191, 0.22);
   border-color: var(--accent);
 }
 
-/* 通用 textarea */
+/* ── 输入/输出 textarea ── */
 .jwt-textarea {
   width: 100%;
   min-width: 0;
   resize: none;
-  padding: 3px 5px;
-  font-size: 10px;
-  line-height: 1.35;
+  padding: 4px 7px;
+  font-size: 11px;
+  line-height: 1.45;
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  border-radius: 4px;
   background: var(--bg-muted);
   color: var(--text);
   font-family: var(--font);
-  min-height: 34px;
-  max-height: 40px;
+  min-height: 40px;
+  max-height: 52px;
   flex-shrink: 0;
   box-sizing: border-box;
 }
@@ -2269,19 +2339,20 @@ textarea:focus {
 .jwt-textarea[readonly] {
   cursor: default;
   background: var(--bg-subtle);
+  color: var(--text-muted);
 }
 
-/* 三列布局：Header | Payload | Signature */
+/* ── 三列：Header | Payload | Signature ── */
 .jwt-cols {
   display: flex;
-  gap: 4px;
+  gap: 5px;
   flex: 1;
-  min-height: 0;
+  min-height: 180px;
   min-width: 0;
 }
 
 .jwt-col {
-  flex: 1;
+  flex: 1 1 0;
   min-width: 0;
   display: flex;
   flex-direction: column;
@@ -2289,33 +2360,61 @@ textarea:focus {
 }
 
 .jwt-col-ta {
-  flex: 1;
-  min-height: 68px;
+  flex: 1 1 0;
+  min-height: 0;
   max-height: none;
+  min-width: 0;
+  width: 100%;
+  resize: none;
+  padding: 5px 7px;
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.45;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-muted);
+  color: var(--text);
+  box-sizing: border-box;
+}
+
+.jwt-col-ta:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--glow);
+}
+
+.jwt-col-ta[readonly] {
+  background: var(--bg-subtle);
+  cursor: default;
+}
+
+/* ── 攻击按钮行 ── */
+.jwt-attacks {
+  display: flex;
+  gap: 3px;
+  padding-top: 5px;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
   min-width: 0;
 }
 
-/* 攻击按钮行 */
-.jwt-attacks {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 3px;
-  padding-top: 4px;
-  border-top: 1px solid var(--border);
-  flex-shrink: 0;
-}
-
 .jwt-btn {
-  padding: 3px 7px;
-  font-size: 10px;
+  flex: 1 1 0;
+  min-width: 44px;
+  padding: 5px 3px;
+  font-size: 11px;
   font-family: var(--font);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
   background: var(--bg-muted);
   color: var(--text);
   cursor: pointer;
   transition: background 0.12s, border-color 0.12s, color 0.12s;
-  line-height: 1.3;
+  line-height: 1.35;
 }
 
 .jwt-btn:hover {
@@ -2325,12 +2424,24 @@ textarea:focus {
 
 .jwt-btn-attack {
   border-color: rgba(248, 113, 113, 0.35);
+  background: rgba(248, 113, 113, 0.05);
   color: #fca5a5;
 }
 
 .jwt-btn-attack:hover {
-  background: rgba(248, 113, 113, 0.1);
+  background: rgba(248, 113, 113, 0.12);
   border-color: rgba(248, 113, 113, 0.55);
+  color: #fecaca;
+}
+
+.jwt-btn-attack:active {
+  transform: translateY(1px);
+}
+
+.jwt-btn-attack:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  transform: none;
 }
 
 .jwt-btn-primary {
@@ -2340,33 +2451,48 @@ textarea:focus {
 }
 
 .jwt-btn-primary:hover {
-  background: rgba(45, 212, 191, 0.2);
+  background: rgba(45, 212, 191, 0.22);
   border-color: var(--accent);
 }
 
-/* 状态栏 + 提示 */
+/* ── 状态栏 ── */
 .jwt-status-bar {
   margin: 0;
-  padding: 3px 6px;
-  font-size: 10px;
-  line-height: 1.3;
+  padding: 4px 8px;
+  font-size: 11px;
+  line-height: 1.4;
   color: var(--accent);
   background: var(--accent-soft);
-  border: 1px solid rgba(45, 212, 191, 0.25);
-  border-radius: var(--radius-sm);
+  border: 1px solid rgba(45, 212, 191, 0.2);
+  border-radius: 4px;
   flex-shrink: 0;
 }
 
 .jwt-status-bar.is-error {
   color: #fecaca;
-  background: rgba(248, 113, 113, 0.12);
-  border-color: rgba(248, 113, 113, 0.35);
+  background: rgba(248, 113, 113, 0.1);
+  border-color: rgba(248, 113, 113, 0.3);
 }
 
-.jwt-notice {
+/* ── JKU 提示 ── */
+.jwt-jku-hint {
   margin: 0;
+  padding: 3px 6px;
   font-size: 9px;
   line-height: 1.35;
+  word-break: break-all;
+  color: var(--text-muted);
+  font-family: var(--mono);
+  background: var(--bg-muted);
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+/* ── 底部脚注 ── */
+.jwt-notice {
+  margin: 0;
+  font-size: 10px;
+  line-height: 1.4;
   color: var(--text-faint);
   flex-shrink: 0;
 }
@@ -2380,22 +2506,8 @@ textarea:focus {
   text-decoration: underline;
 }
 
-.jwt-jku-hint {
+/* —— 全局 textarea 覆盖：JWT 面板不受外层 margin 影响 —— */
+#panel-jwt textarea {
   margin: 0;
-  font-size: 8px;
-  line-height: 1.3;
-  word-break: break-all;
-  color: var(--text-muted);
-  font-family: var(--mono);
-  flex-shrink: 0;
-}
-
-/* 滚动条 */
-.jwt-body::-webkit-scrollbar {
-  width: 4px;
-}
-
-.jwt-body::-webkit-scrollbar-thumb {
-  background: var(--border-strong);
-  border-radius: 2px;
+  width: 100%;
 }

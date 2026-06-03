@@ -237,8 +237,10 @@
             <option value="PS384">PS384</option>
             <option value="PS512">PS512</option>
           </select>
+          <button type="button" class="jwt-btn-xs jwt-btn-genkey hidden" id="jwtBtnGenKey" title="生成新的非对称密钥对">+密钥对</button>
           <span class="jwt-alg-desc" id="jwtAlgDesc" title="算法说明"></span>
         </div>
+        <span class="jwt-key-info hidden" id="jwtKeyInfo"></span>
 
         <!-- S-JWT -->
         <div class="jwt-row">
@@ -250,22 +252,16 @@
         <!-- 三列：Header | Payload | Signature -->
         <div class="jwt-cols">
           <div class="jwt-col">
-            <div class="jwt-row">
-              <span class="jwt-label">Header</span>
-            </div>
-            <textarea class="jwt-textarea jwt-mono jwt-col-ta" id="jwtHeader" spellcheck="false"></textarea>
+            <span class="jwt-label jwt-dot-hdr">Header</span>
+            <textarea class="jwt-col-ta" id="jwtHeader" spellcheck="false"></textarea>
           </div>
           <div class="jwt-col">
-            <div class="jwt-row">
-              <span class="jwt-label">Payload</span>
-            </div>
-            <textarea class="jwt-textarea jwt-mono jwt-col-ta" id="jwtPayload" spellcheck="false"></textarea>
+            <span class="jwt-label jwt-dot-pay">Payload</span>
+            <textarea class="jwt-col-ta" id="jwtPayload" spellcheck="false"></textarea>
           </div>
           <div class="jwt-col">
-            <div class="jwt-row">
-              <span class="jwt-label">Signature</span>
-            </div>
-            <textarea class="jwt-textarea jwt-mono jwt-col-ta" id="jwtSignature" spellcheck="false" readonly></textarea>
+            <span class="jwt-label jwt-dot-sig">Signature</span>
+            <textarea class="jwt-col-ta" id="jwtSignature" spellcheck="false" readonly></textarea>
           </div>
         </div>
 
@@ -276,14 +272,14 @@
         </div>
         <textarea class="jwt-textarea" id="jwtTarget" rows="2" spellcheck="false" placeholder="编码 / 签名结果…"></textarea>
 
-        <!-- 攻击按钮 + 状态 -->
+        <!-- 攻击按钮行 -->
         <div class="jwt-attacks">
-          <button type="button" class="jwt-btn jwt-btn-attack" id="jwtBtnNone">None</button>
-          <button type="button" class="jwt-btn jwt-btn-attack" id="jwtBtnNoSign">No Sign</button>
-          <button type="button" class="jwt-btn jwt-btn-attack" id="jwtBtnBrute">Brute</button>
-          <button type="button" class="jwt-btn jwt-btn-attack" id="jwtBtnJwk">JWK</button>
-          <button type="button" class="jwt-btn jwt-btn-attack" id="jwtBtnJku">JKU</button>
-          <button type="button" class="jwt-btn jwt-btn-attack" id="jwtBtnKid">KID</button>
+          <button type="button" class="jwt-btn jwt-btn-attack" id="jwtBtnNone" title="算法降级：将 alg 改为 none，生成无签名令牌">alg:none</button>
+          <button type="button" class="jwt-btn jwt-btn-attack" id="jwtBtnNoSign" title="移除签名：清空签名段，末尾追加空签名">No Sig</button>
+          <button type="button" class="jwt-btn jwt-btn-attack" id="jwtBtnBrute" title="字典爆破：使用 wallarm/jwt-secrets 字典破解 HS 密钥">Brute</button>
+          <button type="button" class="jwt-btn jwt-btn-attack" id="jwtBtnJwk" title="JWK 注入：在 Header 中嵌入自签公钥 (CVE-2018-0114)">JWK</button>
+          <button type="button" class="jwt-btn jwt-btn-attack" id="jwtBtnJku" title="JKU 注入：Header 中指定远程 JWK 地址，需目标可访问">JKU</button>
+          <button type="button" class="jwt-btn jwt-btn-attack" id="jwtBtnKid" title="KID 路径遍历：kid 指向 /dev/null 配合 AA== 密钥签名">KID</button>
         </div>
         <p class="jwt-status-bar hidden" id="jwtStatus" role="status"></p>
         <p class="jwt-jku-hint hidden" id="jwtJkuHint"></p>
