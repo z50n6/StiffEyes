@@ -157,40 +157,45 @@ var StiffEyesToolsPanel = (function () {
       var row = document.createElement('div');
       row.className = 'tools-ua-row' + (idx === selectedIndex ? ' active' : '');
       row.dataset.index = String(idx);
-      row.dataset.browser = m.browser;
-      row.dataset.platform = m.platform;
-      row.dataset.version = m.version;
 
-      var radio = document.createElement('span');
-      radio.className = 'tools-radio';
-      radio.textContent = idx === selectedIndex ? '●' : '○';
+      var badge = document.createElement('span');
+      badge.className = 'tools-ua-row-badge';
+      badge.textContent = 'v' + m.version;
 
-      var info = document.createElement('span');
-      info.className = 'tools-ua-info';
-      info.textContent = m.label;
+      var infoDiv = document.createElement('div');
+      infoDiv.className = 'tools-ua-row-info';
 
-      var btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'tools-btn-apply';
-      btn.textContent = '应用';
-      btn.addEventListener('click', function (e) {
-        e.stopPropagation();
-        applyUA(m.ua, m.label);
-        // 高亮当前行
-        selectedIndex = idx;
-        renderMatchList(browser, platform);
-      });
+      var nameEl = document.createElement('span');
+      nameEl.className = 'tools-ua-row-name';
+      nameEl.textContent = m.browser + ' · ' + (PLATFORM_NAMES[m.platform] || m.platform);
 
+      var metaEl = document.createElement('span');
+      metaEl.className = 'tools-ua-row-meta';
+      metaEl.textContent = m.label;
+
+      infoDiv.appendChild(nameEl);
+      infoDiv.appendChild(metaEl);
+
+      var check = document.createElement('span');
+      check.className = 'tools-ua-row-check';
+      check.textContent = '✓';
+
+      row.appendChild(badge);
+      row.appendChild(infoDiv);
+      row.appendChild(check);
+
+      // 单击选中，双击应用
       row.addEventListener('click', function () {
-        selectedIndex = idx;
-        renderMatchList(browser, platform);
-        // 填入自定义框方便查看完整 UA
-        $('toolsUaCustom').value = m.ua;
+        if (selectedIndex === idx) {
+          // 再次点击同一行 → 应用
+          applyUA(m.ua, m.label);
+        } else {
+          selectedIndex = idx;
+          renderMatchList(browser, platform);
+          $('toolsUaCustom').value = m.ua;
+        }
       });
 
-      row.appendChild(radio);
-      row.appendChild(info);
-      row.appendChild(btn);
       el.appendChild(row);
     });
 
@@ -372,14 +377,6 @@ var StiffEyesToolsPanel = (function () {
       });
     }
 
-    // 返回按钮
-    var backBtn = $('toolsBackBtn');
-    if (backBtn) {
-      backBtn.addEventListener('click', function () {
-        showDropdown();
-      });
-    }
-
     var browserSel = $('toolsUaBrowser');
     var platformSel = $('toolsUaPlatform');
 
@@ -426,5 +423,5 @@ var StiffEyesToolsPanel = (function () {
     restoreState();
   }
 
-  return { init: init };
+  return { init: init, showDropdown: showDropdown };
 })();

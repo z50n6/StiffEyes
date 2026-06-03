@@ -301,31 +301,37 @@
 
         <!-- UA-Switcher 面板 -->
         <div class="tools-tool-panel hidden" id="toolsPanelUa">
+          <!-- 操作栏 -->
           <div class="tools-panel-head">
-            <button type="button" class="tools-back-btn" id="toolsBackBtn" title="返回工具列表">← 返回</button>
-            <button type="button" class="tools-btn-action hidden" id="toolsBtnReset">重置UA</button>
-            <button type="button" class="tools-btn-action hidden" id="toolsBtnTest">测试UA</button>
-          </div>
-          <!-- 浏览器 + 平台双筛选 -->
-          <div class="tools-filter-row">
-            <label class="tools-filter-label">浏览器</label>
-            <select class="tools-filter-select" id="toolsUaBrowser"></select>
-            <label class="tools-filter-label">平台</label>
-            <select class="tools-filter-select" id="toolsUaPlatform"></select>
+            <span class="tools-panel-title">UA 伪装</span>
+            <button type="button" class="tools-btn-action hidden" id="toolsBtnReset">重置</button>
+            <button type="button" class="tools-btn-action hidden" id="toolsBtnTest">测试</button>
           </div>
 
-          <!-- 匹配结果列表 -->
+          <!-- 筛选：浏览器 + 平台 -->
+          <div class="tools-filter-card">
+            <div class="tools-filter-item">
+              <span class="tools-filter-label">浏览器</span>
+              <select class="tools-filter-select" id="toolsUaBrowser"></select>
+            </div>
+            <div class="tools-filter-item">
+              <span class="tools-filter-label">平台</span>
+              <select class="tools-filter-select" id="toolsUaPlatform"></select>
+            </div>
+          </div>
+
+          <!-- 匹配结果 -->
           <div class="tools-ua-list" id="toolsUaList"></div>
 
           <!-- 自定义 UA -->
-          <div class="tools-custom-row">
-            <label class="tools-filter-label">自定义 UA</label>
-            <input type="text" class="tools-custom-input" id="toolsUaCustom" placeholder="粘贴完整 UA 字符串…" spellcheck="false" />
+          <div class="tools-custom-card">
+            <input type="text" class="tools-custom-input" id="toolsUaCustom" placeholder="或粘贴自定义 UA 字符串…" spellcheck="false" />
             <button type="button" class="tools-btn-apply" id="toolsBtnCustom">应用</button>
           </div>
 
           <!-- 状态栏 -->
           <div class="tools-status-bar hidden" id="toolsStatusBar">
+            <span class="tools-status-dot"></span>
             <span class="tools-status-text" id="toolsStatusText"></span>
           </div>
         </div>

@@ -1175,6 +1175,7 @@ async function init() {
 
 document.querySelectorAll('#mainTabs .tab').forEach((btn) => {
   btn.addEventListener('click', () => {
+    var wasActive = btn.classList.contains('active');
     document.querySelectorAll('#mainTabs .tab').forEach((b) => b.classList.remove('active'));
     document.querySelectorAll('main .panel').forEach((p) => p.classList.remove('active'));
     btn.classList.add('active');
@@ -1196,7 +1197,12 @@ document.querySelectorAll('#mainTabs .tab').forEach((btn) => {
       window.StiffEyesJwtPanel.init();
     }
     if (btn.dataset.panel === 'panel-tools' && window.StiffEyesToolsPanel) {
-      window.StiffEyesToolsPanel.init();
+      // 再次点击已激活的工具 Tab → 返回下拉菜单
+      if (wasActive) {
+        window.StiffEyesToolsPanel.showDropdown();
+      } else {
+        window.StiffEyesToolsPanel.init();
+      }
     }
     if (btn.dataset.panel === 'panel-hackbar' && window.StiffEyesHackbarPanel && currentTabId) {
       window.StiffEyesHackbarPanel.init(currentTabId);
