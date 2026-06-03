@@ -15,10 +15,18 @@ var StiffEyesToolsPanel = (function () {
 
   // ==================== UA 预设数据 ====================
   var UA_PRESETS = [
-    // ---- Chrome ----
+    // ---- Chrome Windows ----
     { browser:'Chrome',  platform:'Windows',  version:'131.0', label:'Chrome 131 · Windows 10/11',  ua:'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36' },
     { browser:'Chrome',  platform:'Windows',  version:'130.0', label:'Chrome 130 · Windows 10/11',  ua:'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36' },
     { browser:'Chrome',  platform:'Windows',  version:'129.0', label:'Chrome 129 · Windows 10/11',  ua:'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36' },
+    { browser:'Chrome',  platform:'Windows',  version:'128.0', label:'Chrome 128 · Windows 10/11',  ua:'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36' },
+    { browser:'Chrome',  platform:'Windows',  version:'127.0', label:'Chrome 127 · Windows 10/11',  ua:'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36' },
+    { browser:'Chrome',  platform:'Windows',  version:'126.0', label:'Chrome 126 · Windows 10/11',  ua:'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36' },
+    { browser:'Chrome',  platform:'Windows',  version:'120.0', label:'Chrome 120 · Windows 10/11',  ua:'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' },
+    { browser:'Chrome',  platform:'Windows',  version:'110.0', label:'Chrome 110 · Windows 10/11',  ua:'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36' },
+    { browser:'Chrome',  platform:'Windows',  version:'100.0', label:'Chrome 100 · Windows 10/11',  ua:'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.4896.60 Safari/537.36' },
+    { browser:'Chrome',  platform:'Windows',  version:'90.0',  label:'Chrome 90 · Windows 10',      ua:'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.85 Safari/537.36' },
+    { browser:'Chrome',  platform:'Windows',  version:'80.0',  label:'Chrome 80 · Windows 10',      ua:'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/80.0.3987.87 Safari/537.36' },
     { browser:'Chrome',  platform:'macOS',    version:'131.0', label:'Chrome 131 · macOS 15',        ua:'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36' },
     { browser:'Chrome',  platform:'macOS',    version:'130.0', label:'Chrome 130 · macOS 15',        ua:'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36' },
     { browser:'Chrome',  platform:'macOS',    version:'129.0', label:'Chrome 129 · macOS 15',        ua:'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36' },
