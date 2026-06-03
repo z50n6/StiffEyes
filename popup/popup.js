@@ -773,48 +773,57 @@ function ensureCompiledStore() {
   if (sniffState.compiledStore) return Promise.resolve(sniffState.compiledStore);
   if (sniffState.storePromise) return sniffState.storePromise;
 
-  sniffState.storePromise = new Promise(function (resolve, reject) {
+  sniffState.storePromise = (async function () {
     var FP = window.StiffEyesFingerprint;
-    if (!FP) { reject(new Error('fingerprint-core not loaded')); return; }
+    if (!FP) throw new Error('fingerprint-core not loaded');
 
+    // 优先从 chrome.storage.session 读取后台预编译的指纹库（避免 UI 线程重复编译）
+    try {
+      var cached = await chrome.storage.session.get('stiffeyes_fp_store_v2');
+      var store = cached && cached.stiffeyes_fp_store_v2;
+      if (store && store.version === FP.constants.FINGERPRINT_RULE_CACHE_VERSION) {
+        sniffState.compiledStore = store;
+        setSniffStatus('●', '正在分析技术栈…', 'busy');
+        return store;
+      }
+    } catch (e) { /* 读取失败，走编译路径 */ }
+
+    // 后备：自行编译（仅后台未预热时触发，极少发生）
+    setSniffStatus('●', '正在编译规则库…', 'busy');
     var files = ['finger.json', 'kscan_fingerprint.json', 'webapp.json', 'apps.json'];
     var base = 'lib/rules/';
+    var payloadMap = {};
 
-    // Load all rule files in parallel
-    Promise.all(files.map(function (filename) {
-      return fetch(chrome.runtime.getURL(base + filename))
-        .then(function (resp) {
-          if (!resp.ok) throw new Error('HTTP ' + resp.status);
-          return resp.json();
-        })
-        .catch(function (err) {
-          console.warn('Failed to load rule file:', filename, err.message);
-          return null;
-        });
-    })).then(function (results) {
-      var payloadMap = {};
-      for (var i = 0; i < files.length; i++) {
-        if (results[i]) payloadMap[files[i]] = results[i];
+    await Promise.all(files.map(async function (filename) {
+      try {
+        var resp = await fetch(chrome.runtime.getURL(base + filename));
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        payloadMap[filename] = await resp.json();
+      } catch (e) {
+        console.warn('Failed to load rule file:', filename, e.message);
       }
-      setSniffStatus('●', '正在编译规则库…', 'busy');
-      sniffState.compiledStore = FP.utils.buildUnifiedCompiledFingerprintStore(payloadMap);
-      setSniffStatus('●', '正在分析技术栈…', 'busy');
-      resolve(sniffState.compiledStore);
-    }).catch(function (e) {
-      reject(e);
-    });
-  });
+    }));
+
+    sniffState.compiledStore = FP.utils.buildUnifiedCompiledFingerprintStore(payloadMap);
+    setSniffStatus('●', '正在分析技术栈…', 'busy');
+    return sniffState.compiledStore;
+  })();
 
   return sniffState.storePromise;
 }
 
 function collectSniffPageSignals() {
   return new Promise(function (resolve) {
+    var settled = false;
+    // 2 秒超时保护：content script 的 favicon 加载最长 3 秒，这里提前放弃
+    var timeout = setTimeout(function () {
+      if (!settled) { settled = true; resolve({}); }
+    }, 2000);
     chrome.tabs.sendMessage(currentTabId, {
       type: 'COLLECT_SNIFF_PAGE_SIGNALS',
       selectors: []
     }, function (response) {
-      resolve(response || {});
+      if (!settled) { settled = true; clearTimeout(timeout); resolve(response || {}); }
     });
   });
 }
