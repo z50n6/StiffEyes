@@ -296,18 +296,11 @@
       <div class="tools-body">
         <!-- 悬浮下拉菜单（定位在Tab下方） -->
         <div class="tools-dropdown hidden" id="toolsDropdown">
-          <div class="tools-dropdown-item" data-tool="ua-switcher">UserAgent-Switcher</div>
+          <div class="tools-dropdown-item" data-tool="ua-switcher">UA头伪装</div>
         </div>
 
         <!-- UA-Switcher 面板 -->
         <div class="tools-tool-panel hidden" id="toolsPanelUa">
-          <!-- 操作栏 -->
-          <div class="tools-panel-head">
-            <span class="tools-panel-title">UA 伪装</span>
-            <button type="button" class="tools-btn-action hidden" id="toolsBtnReset">重置</button>
-            <button type="button" class="tools-btn-action hidden" id="toolsBtnTest">测试</button>
-          </div>
-
           <!-- 筛选：浏览器 + 平台 -->
           <div class="tools-filter-card">
             <div class="tools-filter-item">
@@ -333,6 +326,8 @@
           <div class="tools-status-bar hidden" id="toolsStatusBar">
             <span class="tools-status-dot"></span>
             <span class="tools-status-text" id="toolsStatusText"></span>
+            <button type="button" class="tools-btn-action hidden" id="toolsBtnReset">重置</button>
+            <button type="button" class="tools-btn-action hidden" id="toolsBtnTest">测试</button>
           </div>
         </div>
       </div>
