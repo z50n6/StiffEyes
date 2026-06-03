@@ -82,7 +82,15 @@ var StiffEyesToolsPanel = (function () {
     // ---- Internet Explorer ----
     { browser:'IE',  platform:'Windows', version:'11.0', label:'IE 11 · Windows 10/11',  ua:'Mozilla/5.0 (Windows NT 10.0; WOW64; Trident/7.0; rv:11.0) like Gecko' },
     { browser:'IE',  platform:'Windows', version:'10.0', label:'IE 10 · Windows 8',     ua:'Mozilla/5.0 (compatible; MSIE 10.0; Windows NT 6.2; Trident/6.0)' },
-    { browser:'IE',  platform:'Windows', version:'9.0',  label:'IE 9 · Windows 7',      ua:'Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1; Trident/5.0)' }
+    { browser:'IE',  platform:'Windows', version:'9.0',  label:'IE 9 · Windows 7',      ua:'Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1; Trident/5.0)' },
+
+    // ---- Mobile Chrome (额外版本) ----
+    { browser:'Chrome', platform:'Android', version:'128.0', label:'Chrome 128 · Android 14', ua:'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.6613.88 Mobile Safari/537.36' },
+    { browser:'Chrome', platform:'Android', version:'120.0', label:'Chrome 120 · Android 13', ua:'Mozilla/5.0 (Linux; Android 13; SM-S901B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.6099.144 Mobile Safari/537.36' },
+
+    // ---- Android Browser (AOSP 原生浏览器) ----
+    { browser:'Android', platform:'Android', version:'4.0', label:'Android Browser 4.0 · KitKat', ua:'Mozilla/5.0 (Linux; Android 4.4.2; Nexus 7 Build/KOT49H) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/30.0.1599.105 Safari/537.36' },
+    { browser:'Android', platform:'Android', version:'4.0', label:'Android Browser · Android 10', ua:'Mozilla/5.0 (Linux; Android 10; SM-G960F) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/80.0.3987.119 Mobile Safari/537.36' }
   ];
 
   var BROWSERS = [
@@ -97,7 +105,8 @@ var StiffEyesToolsPanel = (function () {
     { id:'Bingbot',  name:'Bingbot' },
     { id:'WeChat',   name:'WeChat' },
     { id:'Huawei',   name:'华为浏览器' },
-    { id:'IE',       name:'Internet Explorer' }
+    { id:'IE',       name:'Internet Explorer' },
+    { id:'Android',  name:'Android Browser' }
   ];
 
   // 每个浏览器支持的平台
@@ -108,6 +117,7 @@ var StiffEyesToolsPanel = (function () {
     WeChat:   ['Android','iOS'],
     Huawei:   ['Android'],
     IE:       ['Windows'],
+    Android:  ['Android'],
     Edge:     ['Windows','macOS'],
     Opera:    ['Windows','macOS'],
     Brave:    ['Windows','macOS'],
