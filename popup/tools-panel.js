@@ -6,7 +6,7 @@ var StiffEyesToolsPanel = (function () {
   'use strict';
 
   var initialized = false;
-  var activeTool = 'ua-switcher';
+  var activeTool = '';
   var selectedIndex = -1;
   var activeUA = '';
   var activeUALabel = '';
@@ -334,9 +334,31 @@ var StiffEyesToolsPanel = (function () {
   // ==================== 工具切换 ====================
 
   function switchTool(toolId) {
+    if (!toolId) {
+      // 未选择工具：显示空状态提示
+      activeTool = '';
+      var uaPanel = $('toolsPanelUa');
+      var emptyHint = $('toolsEmptyHint');
+      if (uaPanel) uaPanel.classList.add('hidden');
+      if (emptyHint) emptyHint.classList.remove('hidden');
+      $('toolsBtnReset').classList.add('hidden');
+      $('toolsBtnTest').classList.add('hidden');
+      $('toolsStatusBar').classList.add('hidden');
+      return;
+    }
+
     activeTool = toolId;
-    var uaPanel = $('toolsPanelUa');
-    if (uaPanel) uaPanel.classList.toggle('hidden', toolId !== 'ua-switcher');
+    var uaPanel2 = $('toolsPanelUa');
+    var emptyHint2 = $('toolsEmptyHint');
+    if (emptyHint2) emptyHint2.classList.add('hidden');
+
+    if (toolId === 'ua-switcher') {
+      if (uaPanel2) uaPanel2.classList.remove('hidden');
+      renderBrowserSelect();
+      renderPlatformSelect('Chrome');
+      renderMatchList('Chrome', 'Windows');
+      updateStatusBar();
+    }
   }
 
   // ==================== 事件 ====================
@@ -390,11 +412,10 @@ var StiffEyesToolsPanel = (function () {
       wireEvents();
       initialized = true;
     }
-    renderBrowserSelect();
-    renderPlatformSelect('Chrome');
-    renderMatchList('Chrome', 'Windows');
+    // 初始显示下拉选择，不展示任何工具
+    $('toolsSelect').value = '';
+    switchTool('');
     restoreState();
-    updateStatusBar();
   }
 
   return { init: init };

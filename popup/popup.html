@@ -298,14 +298,21 @@
         <div class="tools-head">
           <label class="tools-head-label">选择工具</label>
           <select class="tools-select" id="toolsSelect">
+            <option value="">-- 选择工具 --</option>
             <option value="ua-switcher">UserAgent-Switcher</option>
           </select>
           <button type="button" class="tools-btn-action hidden" id="toolsBtnReset">重置UA</button>
           <button type="button" class="tools-btn-action hidden" id="toolsBtnTest">测试UA</button>
         </div>
 
+        <!-- 空状态提示 -->
+        <div class="tools-empty-hint" id="toolsEmptyHint">
+          <span class="tools-empty-icon">🔧</span>
+          <span>请在上方下拉菜单中选择一个工具</span>
+        </div>
+
         <!-- UA-Switcher 面板 -->
-        <div class="tools-tool-panel" id="toolsPanelUa">
+        <div class="tools-tool-panel hidden" id="toolsPanelUa">
           <!-- 浏览器 + 平台双筛选 -->
           <div class="tools-filter-row">
             <label class="tools-filter-label">浏览器</label>

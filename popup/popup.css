@@ -2588,6 +2588,24 @@ textarea:focus {
   color: var(--text);
 }
 
+/* ── 空状态提示 ── */
+.tools-empty-hint {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 200px;
+  color: var(--text-faint);
+  font-size: 12px;
+}
+
+.tools-empty-icon {
+  font-size: 32px;
+  opacity: 0.4;
+}
+
 /* ── 浏览器 + 平台筛选 ── */
 .tools-filter-row {
   display: flex;
