@@ -586,6 +586,22 @@ function scanDirectories(tabId, tabUrl) {
   });
 }
 
+// ========== WebRTC 防护 ==========
+function applyWebRtcPolicy(enabled) {
+  try {
+    chrome.privacy.network.webRTCIPHandlingPolicy.set({
+      value: enabled ? 'disable_non_proxied_udp' : 'default'
+    });
+  } catch (e) { /* 隐私 API 不可用 */ }
+}
+
+function initWebRtcPolicy() {
+  chrome.storage.local.get(['webrtc_protection'], function (data) {
+    // 默认开启：webrtc_protection !== false
+    applyWebRtcPolicy(data.webrtc_protection !== false);
+  });
+}
+
 // ========== Install ==========
 chrome.runtime.onInstalled.addListener(function () {
   chrome.storage.local.get(['directories'], function (data) {
@@ -593,7 +609,17 @@ chrome.runtime.onInstalled.addListener(function () {
       chrome.storage.local.set({ directories: StiffEyesPaths.DEFAULT_SPRING_PATHS });
     }
   });
+  // 首次安装默认开启 WebRTC 防护
+  chrome.storage.local.get(['webrtc_protection'], function (data) {
+    if (data.webrtc_protection === undefined) {
+      chrome.storage.local.set({ webrtc_protection: true });
+    }
+    applyWebRtcPolicy(data.webrtc_protection !== false);
+  });
 });
+
+// SW 每次唤醒时重新应用策略
+initWebRtcPolicy();
 
 // ========== Proxy Fetch ==========
 function proxyFetch(url, timeoutMs) {
@@ -1068,6 +1094,12 @@ chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
     case 'HACKBAR_CLEAR_HEADERS': {
       if (tabId == null) { sendResponse({ ok: false }); return false; }
       _hackbarHeaders.delete(tabId);
+      sendResponse({ ok: true });
+      return false;
+    }
+
+    case 'SET_WEBRTC_POLICY': {
+      applyWebRtcPolicy(msg.enabled !== false);
       sendResponse({ ok: true });
       return false;
     }
