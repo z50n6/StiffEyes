@@ -77,7 +77,12 @@ var StiffEyesToolsPanel = (function () {
 
     // ---- 华为浏览器 ----
     { browser:'Huawei',  platform:'Android', version:'15.0', label:'华为浏览器 15.0 · Android 14', ua:'Mozilla/5.0 (Linux; Android 14; ELS-NX9; HMSCore 6.15.0.322) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.5735.196 HuaweiBrowser/15.0.10.302 Mobile Safari/537.36' },
-    { browser:'Huawei',  platform:'Android', version:'14.0', label:'华为浏览器 14.0 · Android 13', ua:'Mozilla/5.0 (Linux; Android 13; NOP-AN00; HMSCore 6.14.0.312) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.5359.128 HuaweiBrowser/14.0.10.302 Mobile Safari/537.36' }
+    { browser:'Huawei',  platform:'Android', version:'14.0', label:'华为浏览器 14.0 · Android 13', ua:'Mozilla/5.0 (Linux; Android 13; NOP-AN00; HMSCore 6.14.0.312) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.5359.128 HuaweiBrowser/14.0.10.302 Mobile Safari/537.36' },
+
+    // ---- Internet Explorer ----
+    { browser:'IE',  platform:'Windows', version:'11.0', label:'IE 11 · Windows 10/11',  ua:'Mozilla/5.0 (Windows NT 10.0; WOW64; Trident/7.0; rv:11.0) like Gecko' },
+    { browser:'IE',  platform:'Windows', version:'10.0', label:'IE 10 · Windows 8',     ua:'Mozilla/5.0 (compatible; MSIE 10.0; Windows NT 6.2; Trident/6.0)' },
+    { browser:'IE',  platform:'Windows', version:'9.0',  label:'IE 9 · Windows 7',      ua:'Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1; Trident/5.0)' }
   ];
 
   var BROWSERS = [
@@ -91,7 +96,8 @@ var StiffEyesToolsPanel = (function () {
     { id:'Googlebot',name:'Googlebot' },
     { id:'Bingbot',  name:'Bingbot' },
     { id:'WeChat',   name:'WeChat' },
-    { id:'Huawei',   name:'华为浏览器' }
+    { id:'Huawei',   name:'华为浏览器' },
+    { id:'IE',       name:'Internet Explorer' }
   ];
 
   // 每个浏览器支持的平台
@@ -101,6 +107,7 @@ var StiffEyesToolsPanel = (function () {
     Safari:   ['macOS','iOS'],
     WeChat:   ['Android','iOS'],
     Huawei:   ['Android'],
+    IE:       ['Windows'],
     Edge:     ['Windows','macOS'],
     Opera:    ['Windows','macOS'],
     Brave:    ['Windows','macOS'],
