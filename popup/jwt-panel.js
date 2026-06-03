@@ -54,9 +54,19 @@ var StiffEyesJwtPanel = (function () {
   async function verifyAndReport() {
     var s = readState();
     var token = s.target || s.source;
-    if (!token || !token.trim() || token.split('.').length < 3) return;
+    if (!token || !token.trim()) return;
+    if (token.split('.').length < 3) {
+      setStatus('令牌不完整（少于3段）', true);
+      return;
+    }
     var cat = StiffEyesJwt.getAlgCategory(s.alg);
-    if (!cat) return;
+    if (!cat) {
+      // alg=none 或未知算法 — 无法验证
+      if (s.alg === 'none' || !s.alg) {
+        setStatus('alg=none · 无签名保护');
+      }
+      return;
+    }
 
     try {
       var result = await StiffEyesJwt.verify(token, s.secret, s.alg);
@@ -66,7 +76,7 @@ var StiffEyesJwtPanel = (function () {
         setStatus(result.error, true);
       }
     } catch (e) {
-      /* 验证异常静默忽略 */
+      setStatus('验证异常: ' + String(e.message || e), true);
     }
   }
 
@@ -115,7 +125,6 @@ var StiffEyesJwtPanel = (function () {
       syncKeySection();
       setStatus('已解码');
       refreshTarget();
-      verifyAndReport();
     } catch (e) {
       setStatus(String(e.message || e), true);
     }
@@ -130,6 +139,7 @@ var StiffEyesJwtPanel = (function () {
     $('jwtSecret').value = '';
     StiffEyesJwt.clearKeyPair();
     syncKeySection();
+    $('jwtJkuHint').classList.add('hidden');
     setStatus('已清空');
   }
 
@@ -238,6 +248,7 @@ var StiffEyesJwtPanel = (function () {
       var hint = $('jwtJkuHint');
       hint.textContent = 'JKU: ' + jku;
       hint.classList.remove('hidden');
+      syncKeySection();
       await refreshTarget();
       setStatus('JKU 注入完成 · JKU: ' + jku.split('/').pop());
     } catch (e) {
