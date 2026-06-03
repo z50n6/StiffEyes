@@ -271,26 +271,27 @@ chrome.webRequest.onHeadersReceived.addListener(
         persistObj[persistKey] = obs.main;
         chrome.storage.session.set(persistObj).catch(function () {});
       } catch (e) {}
-      // Run eager header fingerprint detection (matching SnowEyesPlus behavior)
-      // Save promise so GET_SNIFF_DATA can await it to avoid race conditions
-      obs._headerHitsPromise = _detectHeaderFingerprints(details).then(function (hits) {
-        obs.headerHits = hits;
-        obs.headerHitsUpdatedAt = Date.now();
-        obs._headerHitsPromise = null;
-        // Also persist header hits so they survive SW restart
-        try {
-          var hitsKey = 'stiffeyes_obs_hits_' + details.tabId;
-          var hitsObj = {};
-          hitsObj[hitsKey] = hits;
-          chrome.storage.session.set(hitsObj).catch(function () {});
-        } catch (e) {}
-        // If the popup is open waiting, notify it
-        chrome.runtime.sendMessage({
-          type: 'SNIFF_HEADER_HITS_READY',
-          tabId: details.tabId,
-          headerHits: hits
-        }).catch(function () {});
-        return hits;
+      // 指纹检测改为按需触发（避免编译阻塞信息收集等核心消息）
+      // Header 原始数据已存储到 obs.main，检测在 popup 请求 SNIFF_RUN_DETECTION 时执行
+      // 使用 setTimeout(0) 将检测推迟到当前消息循环之后
+      setTimeout(function () {
+        obs._headerHitsPromise = _detectHeaderFingerprints(details).then(function (hits) {
+          obs.headerHits = hits;
+          obs.headerHitsUpdatedAt = Date.now();
+          obs._headerHitsPromise = null;
+          try {
+            var hitsKey = 'stiffeyes_obs_hits_' + details.tabId;
+            var hitsObj = {};
+            hitsObj[hitsKey] = hits;
+            chrome.storage.session.set(hitsObj).catch(function () {});
+          } catch (e) {}
+          // 通知 popup 指纹已就绪
+          chrome.runtime.sendMessage({
+            type: 'SNIFF_HEADER_HITS_READY',
+            tabId: details.tabId,
+            headerHits: hits
+          }).catch(function () {});
+          return hits;
       }).catch(function (err) {
         obs._headerHitsPromise = null;
         console.warn('Header fingerprint detection failed:', err);
