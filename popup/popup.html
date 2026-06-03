@@ -30,6 +30,7 @@
     <button type="button" class="tab" data-panel="panel-webpack" role="tab">Webpack</button>
     <button type="button" class="tab" data-panel="panel-cloud" role="tab">云存储</button>
     <button type="button" class="tab" data-panel="panel-payload" role="tab">Payload</button>
+    <button type="button" class="tab" data-panel="panel-jwt" role="tab">JWT</button>
 	    <button type="button" class="tab" data-panel="panel-hackbar" role="tab" style="display:none">HackBar</button>
   </nav>
 
@@ -216,6 +217,83 @@
       </div>
     </section>
 
+    <section id="panel-jwt" class="panel">
+      <div class="jwt-body">
+        <!-- 紧凑头部：标题 + 密钥 + 算法 + 描述 -->
+        <div class="jwt-head">
+          <button type="button" class="jwt-title-btn" id="jwtTitleBtn" title="左键解码 · 中键清空">JWT</button>
+          <input type="text" class="jwt-input-inline" id="jwtSecret" placeholder="HMAC 密钥" autocomplete="off" spellcheck="false" />
+          <select class="jwt-input-inline jwt-alg-select" id="jwtAlgSelect" title="签名算法">
+            <option value="HS256">HS256</option>
+            <option value="HS384">HS384</option>
+            <option value="HS512">HS512</option>
+            <option value="RS256">RS256</option>
+            <option value="RS384">RS384</option>
+            <option value="RS512">RS512</option>
+            <option value="ES256">ES256</option>
+            <option value="ES384">ES384</option>
+            <option value="ES512">ES512</option>
+            <option value="PS256">PS256</option>
+            <option value="PS384">PS384</option>
+            <option value="PS512">PS512</option>
+          </select>
+          <span class="jwt-alg-desc" id="jwtAlgDesc" title="算法说明"></span>
+        </div>
+
+        <!-- S-JWT -->
+        <div class="jwt-row">
+          <span class="jwt-label">S-JWT</span>
+          <button type="button" class="jwt-btn-xs" id="jwtBtnSample">示例</button>
+        </div>
+        <textarea class="jwt-textarea" id="jwtSource" rows="2" spellcheck="false" placeholder="粘贴 JWT…"></textarea>
+
+        <!-- 三列：Header | Payload | Signature -->
+        <div class="jwt-cols">
+          <div class="jwt-col">
+            <div class="jwt-row">
+              <span class="jwt-label">Header</span>
+            </div>
+            <textarea class="jwt-textarea jwt-mono jwt-col-ta" id="jwtHeader" spellcheck="false"></textarea>
+          </div>
+          <div class="jwt-col">
+            <div class="jwt-row">
+              <span class="jwt-label">Payload</span>
+            </div>
+            <textarea class="jwt-textarea jwt-mono jwt-col-ta" id="jwtPayload" spellcheck="false"></textarea>
+          </div>
+          <div class="jwt-col">
+            <div class="jwt-row">
+              <span class="jwt-label">Signature</span>
+            </div>
+            <textarea class="jwt-textarea jwt-mono jwt-col-ta" id="jwtSignature" spellcheck="false" readonly></textarea>
+          </div>
+        </div>
+
+        <!-- T-JWT -->
+        <div class="jwt-row">
+          <span class="jwt-label">T-JWT</span>
+          <button type="button" class="jwt-btn-xs jwt-btn-primary" id="jwtBtnCopy">复制</button>
+        </div>
+        <textarea class="jwt-textarea" id="jwtTarget" rows="2" spellcheck="false" placeholder="编码 / 签名结果…"></textarea>
+
+        <!-- 攻击按钮 + 状态 -->
+        <div class="jwt-attacks">
+          <button type="button" class="jwt-btn jwt-btn-attack" id="jwtBtnNone">None</button>
+          <button type="button" class="jwt-btn jwt-btn-attack" id="jwtBtnNoSign">No Sign</button>
+          <button type="button" class="jwt-btn jwt-btn-attack" id="jwtBtnBrute">Brute</button>
+          <button type="button" class="jwt-btn jwt-btn-attack" id="jwtBtnJwk">JWK</button>
+          <button type="button" class="jwt-btn jwt-btn-attack" id="jwtBtnJku">JKU</button>
+          <button type="button" class="jwt-btn jwt-btn-attack" id="jwtBtnKid">KID</button>
+        </div>
+        <p class="jwt-status-bar hidden" id="jwtStatus" role="status"></p>
+        <p class="jwt-jku-hint hidden" id="jwtJkuHint"></p>
+        <p class="jwt-notice">
+          KID 路径可触发 RCE/文件读/SQL注入 ·
+          <a href="https://github.com/wallarm/jwt-secrets" target="_blank" rel="noopener">字典</a>
+        </p>
+      </div>
+    </section>
+
     <section id="panel-hackbar" class="panel">
       <div class="hackbar-body">
 
@@ -367,8 +445,11 @@
   <script src="../lib/hackbar-sql.js"></script>
   <script src="../lib/hackbar-xss.js"></script>
   <script src="../lib/hackbar-payloads.js"></script>
+  <script src="../lib/jose.bundle.js"></script>
+  <script src="../lib/jwt-core.js"></script>
   <script src="webpack-panel.js"></script>
   <script src="hackbar-panel.js"></script>
+  <script src="jwt-panel.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>

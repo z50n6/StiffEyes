@@ -31,3 +31,7 @@ venv/
 # Local overrides
 .env
 .env.*
+
+# Node (jose bundle build)
+node_modules/
+package-lock.json

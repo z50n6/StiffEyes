@@ -1,0 +1,29 @@
+{
+  "name": "stiffeyes",
+  "version": "1.0.0",
+  "description": "<p align=\"center\">   <img src=\"icons/icon128.png\" width=\"80\" height=\"80\" alt=\"绷着脸 StiffEyes\" /> </p>",
+  "main": "background.js",
+  "directories": {
+    "lib": "lib"
+  },
+  "scripts": {
+    "build:jose": "esbuild node_modules/jose/dist/browser/index.js --bundle --format=iife --global-name=jose --platform=browser --outfile=lib/jose.bundle.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/z50n6/StiffEyes.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/z50n6/StiffEyes/issues"
+  },
+  "homepage": "https://github.com/z50n6/StiffEyes#readme",
+  "dependencies": {
+    "esbuild": "^0.25.0",
+    "jose": "^5.9.6"
+  }
+}
