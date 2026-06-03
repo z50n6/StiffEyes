@@ -1107,6 +1107,37 @@ chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
       }
       return true;
     }
+
+    // 指纹 DOM 检测：在后台线程运行，避免阻塞 popup UI
+    case 'SNIFF_RUN_DETECTION': {
+      (async function () {
+        try {
+          var store = await _getFingerprintStore();
+          var FP = self.StiffEyesFingerprint;
+          if (!FP || !store) {
+            sendResponse({ headerHits: [], domHits: [], merged: [] });
+            return;
+          }
+          var domInput = msg.domInput || {};
+          // 如果 background 已预计算 headerHits 则直接使用
+          var sniffTabId = msg.tabId || tabId;
+          var obs = sniffTabId ? getObservation(sniffTabId) : null;
+          var headerHits = (obs && obs.headerHits) || [];
+          // 运行 DOM 检测
+          var domHits = (typeof FP.utils.detectFingerprintsWithUnifiedStore === 'function')
+            ? FP.utils.detectFingerprintsWithUnifiedStore(store, domInput, { threshold: 72, includeLowScore: false }) || []
+            : [];
+          // 合并
+          var merged = (typeof FP.utils.mergeFingerprintHitResults === 'function')
+            ? FP.utils.mergeFingerprintHitResults(headerHits, domHits)
+            : headerHits.concat(domHits);
+          sendResponse({ headerHits: headerHits, domHits: domHits, merged: merged });
+        } catch (e) {
+          sendResponse({ headerHits: [], domHits: [], merged: [], error: e.message });
+        }
+      })();
+      return true;
+    }
   }
   return false;
 });

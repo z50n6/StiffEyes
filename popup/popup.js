@@ -1053,54 +1053,28 @@ async function openSniff() {
     var runtime = results[1];
     var bg = results[2];
 
-    // 2. Build DOM signal input (headers are pre-computed by background)
+    // 2. Build DOM signal input
     var domInput = StiffEyesSniffSignals.buildDomInput(page, runtime, bg);
 
-    // 3. Ensure compiled store is ready
-    setSniffStatus('●', '加载规则库…', 'busy');
-    var compiledStore = await ensureCompiledStore();
-
-    // 4. Get header hits (pre-computed eagerly by background.js, like SnowEyesPlus)
-    var headerHits = (bg && Array.isArray(bg.headerHits)) ? bg.headerHits : [];
-    if (!headerHits.length) {
-      // Fallback: run header pass in popup if background didn't compute it
-      var headerInput = StiffEyesSniffSignals.buildHeaderInput(page, runtime, bg);
-      headerHits = (window.StiffEyesFingerprint && window.StiffEyesFingerprint.utils &&
-        typeof window.StiffEyesFingerprint.utils.detectFingerprintsWithUnifiedStore === 'function')
-        ? window.StiffEyesFingerprint.utils.detectFingerprintsWithUnifiedStore(compiledStore, headerInput, { threshold: 72, includeLowScore: false }) || []
-        : [];
-    }
-
-    // 5. Run DOM pass
+    // 3. 将指纹检测委托给后台 Service Worker（避免 UI 线程阻塞）
     setSniffStatus('●', '正在分析技术栈…', 'busy');
-    var FP = (window.StiffEyesFingerprint && window.StiffEyesFingerprint.utils) || {};
-    var domHits = (typeof FP.detectFingerprintsWithUnifiedStore === 'function')
-      ? FP.detectFingerprintsWithUnifiedStore(compiledStore, domInput, { threshold: 72, includeLowScore: false }) || []
-      : [];
-
-    // 6. Merge header + DOM hits (matching SnowEyesPlus mergeFingerprintHitResults)
-    var merged = [];
-    if (typeof FP.mergeFingerprintHitResults === 'function') {
-      merged = FP.mergeFingerprintHitResults(headerHits, domHits);
-    } else {
-      var byName = {};
-      headerHits.concat(domHits).forEach(function (h) {
-        var nk = String(h.name || '').toLowerCase();
-        if (!byName[nk] || (h.score || 0) > (byName[nk].score || 0)) {
-          byName[nk] = h;
-        }
+    var detectionResult = await new Promise(function (resolve) {
+      chrome.runtime.sendMessage({
+        type: 'SNIFF_RUN_DETECTION',
+        tabId: currentTabId,
+        domInput: domInput
+      }, function (resp) {
+        resolve(resp || { headerHits: [], domHits: [], merged: [] });
       });
-      merged = Object.values(byName);
-    }
-
-    // 7. Run structured rule engine (sniff-rules-core.js)
+    });
+    var merged = detectionResult.merged || [];
     var structuredRules = window.StiffEyesSniffRules || [];
     var structuredHits = [];
     if (structuredRules.length && typeof StiffEyesSniff.matchStructuredRules === 'function') {
       structuredHits = StiffEyesSniff.matchStructuredRules(structuredRules, page, runtime, bg);
     }
 
-    // 8. Merge structured hits into results (structured rules take priority on collision)
+    // 4. 合并结构化规则命中（结构化规则在同名碰撞时优先）
     if (structuredHits.length) {
       var mergedByName = {};
       merged.forEach(function (h) {
