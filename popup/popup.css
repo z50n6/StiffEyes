@@ -2511,8 +2511,14 @@ textarea:focus {
    ============================================================ */
 #panel-tools {
   max-height: 480px;
-  overflow: hidden;
+  overflow: visible;
   position: relative;
+}
+
+#panel-tools.active {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 #panel-tools.active {
@@ -2537,15 +2543,16 @@ textarea:focus {
 /* ── 悬浮下拉菜单 ── */
 .tools-dropdown {
   position: absolute;
-  top: 100%;
-  left: 8px;
-  right: 8px;
+  top: 0;
+  left: 0;
+  right: 0;
   z-index: 10;
   background: var(--bg-surface);
   border: 1px solid var(--border-strong);
   border-radius: 8px;
   box-shadow: 0 8px 24px rgba(0,0,0,0.5);
   overflow: hidden;
+  margin: 8px;
 }
 
 .tools-dropdown-item {
