@@ -299,33 +299,29 @@ function renderScan(data) {
 
 async function loadResults() {
   if (!currentTabId) return;
-  const res = await chrome.runtime.sendMessage({
-    type: 'GET_SCAN_RESULTS',
-    tabId: currentTabId
-  });
-  if (res?.scan) {
-    StiffEyesPatterns.normalizeScanResult(res.scan);
-  }
-  renderScan(res?.scan);
 
-  if (res?.springResults) {
-    renderSpringResults(res.springResults);
+  // 直接从 chrome.storage.session 读取（避免 background 中转延迟）
+  var scanKey = 'bl_scan_' + currentTabId;
+  var springKey = 'bl_springResults_' + currentTabId;
+  var data = {};
+  try {
+    data = await chrome.storage.session.get([scanKey, springKey]);
+  } catch (e) { /* storage 读取异常 */ }
+
+  var scan = data[scanKey] || null;
+  if (scan && StiffEyesPatterns.normalizeScanResult) {
+    StiffEyesPatterns.normalizeScanResult(scan);
+  }
+  renderScan(scan);
+
+  // Spring 状态由 chrome.storage.onChanged 监听推送，此处只加载结果
+  var springResults = data[springKey] || '';
+  if (springResults) {
+    renderSpringResults(springResults);
   } else {
     renderList($('listSpring'), [], '暂无扫描结果');
   }
-  if (res?.springState) {
-    if (res.springState.scanning) {
-      applySpringProgress(res.springState);
-    } else if (res.springState.cancelled) {
-      onSpringCancelled(res.springState, res.springResults);
-    } else if (res.springState.error) {
-      failSpringScan(res.springState.error);
-    } else {
-      setSpringScanningUi(false);
-    }
-  } else {
-    setSpringScanningUi(false);
-  }
+  setSpringScanningUi(false);
 }
 
 // ========== Cloud Bucket Panel ==========
