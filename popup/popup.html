@@ -31,7 +31,8 @@
     <button type="button" class="tab" data-panel="panel-cloud" role="tab">云存储</button>
     <button type="button" class="tab" data-panel="panel-payload" role="tab">Payload</button>
     <button type="button" class="tab" data-panel="panel-jwt" role="tab">JWT</button>
-	    <button type="button" class="tab" data-panel="panel-hackbar" role="tab" style="display:none">HackBar</button>
+	    <button type="button" class="tab" data-panel="panel-tools" role="tab">工具</button>
+    <button type="button" class="tab" data-panel="panel-hackbar" role="tab" style="display:none">HackBar</button>
   </nav>
 
   <main>
@@ -290,6 +291,47 @@
       </div>
     </section>
 
+    <!-- ====== 工具面板 ====== -->
+    <section id="panel-tools" class="panel">
+      <div class="tools-body">
+        <!-- 工具选择栏 -->
+        <div class="tools-head">
+          <label class="tools-head-label">选择工具</label>
+          <select class="tools-select" id="toolsSelect">
+            <option value="ua-switcher">UserAgent-Switcher</option>
+          </select>
+          <button type="button" class="tools-btn-action hidden" id="toolsBtnReset">重置UA</button>
+          <button type="button" class="tools-btn-action hidden" id="toolsBtnTest">测试UA</button>
+        </div>
+
+        <!-- UA-Switcher 面板 -->
+        <div class="tools-tool-panel" id="toolsPanelUa">
+          <!-- 浏览器 + 平台双筛选 -->
+          <div class="tools-filter-row">
+            <label class="tools-filter-label">浏览器</label>
+            <select class="tools-filter-select" id="toolsUaBrowser"></select>
+            <label class="tools-filter-label">平台</label>
+            <select class="tools-filter-select" id="toolsUaPlatform"></select>
+          </div>
+
+          <!-- 匹配结果列表 -->
+          <div class="tools-ua-list" id="toolsUaList"></div>
+
+          <!-- 自定义 UA -->
+          <div class="tools-custom-row">
+            <label class="tools-filter-label">自定义 UA</label>
+            <input type="text" class="tools-custom-input" id="toolsUaCustom" placeholder="粘贴完整 UA 字符串…" spellcheck="false" />
+            <button type="button" class="tools-btn-apply" id="toolsBtnCustom">应用</button>
+          </div>
+
+          <!-- 状态栏 -->
+          <div class="tools-status-bar hidden" id="toolsStatusBar">
+            <span class="tools-status-text" id="toolsStatusText"></span>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <section id="panel-hackbar" class="panel">
       <div class="hackbar-body">
 
@@ -446,6 +488,7 @@
   <script src="webpack-panel.js"></script>
   <script src="hackbar-panel.js"></script>
   <script src="jwt-panel.js"></script>
+  <script src="tools-panel.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>

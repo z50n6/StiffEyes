@@ -1195,6 +1195,9 @@ document.querySelectorAll('#mainTabs .tab').forEach((btn) => {
     if (btn.dataset.panel === 'panel-jwt' && window.StiffEyesJwtPanel) {
       window.StiffEyesJwtPanel.init();
     }
+    if (btn.dataset.panel === 'panel-tools' && window.StiffEyesToolsPanel) {
+      window.StiffEyesToolsPanel.init();
+    }
     if (btn.dataset.panel === 'panel-hackbar' && window.StiffEyesHackbarPanel && currentTabId) {
       window.StiffEyesHackbarPanel.init(currentTabId);
     }
