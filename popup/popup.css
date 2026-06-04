@@ -3529,6 +3529,18 @@ textarea:focus {
   line-height: 1.5;
 }
 
+.tools-jsleak-source {
+  font-size: 9px;
+  color: var(--accent);
+  text-decoration: none;
+  cursor: pointer;
+  word-break: break-all;
+}
+.tools-jsleak-source:hover {
+  text-decoration: underline;
+  color: var(--accent-hover);
+}
+
 /* ── 批量网址面板 ── */
 .tools-batch-tabs {
   display: flex;

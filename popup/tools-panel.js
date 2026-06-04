@@ -1399,7 +1399,12 @@ var StiffEyesToolsPanel = (function () {
 
     var html = '';
     findings.forEach(function (f) {
-      var sourceTag = f._file ? ' <span style="color:var(--text-faint);font-size:9px">[' + escHtml(f._file) + ']</span>' : '';
+      var sourceTag = '';
+      if (f._fileUrl) {
+        var shortName = f._fileUrl.replace(/^https?:\/\/[^\/]+\//, '…/');
+        if (shortName.length > 50) shortName = '…' + shortName.slice(-45);
+        sourceTag = ' <a class="tools-jsleak-source" href="' + escAttr(f._fileUrl) + '" target="_blank" title="' + escAttr(f._fileUrl) + '">[' + escHtml(shortName) + ']</a>';
+      }
       html += '<div class="tools-jsleak-item">' +
         '<span class="tools-jsleak-badge ' + f.level + '">' + f.level + '</span>' +
         '<div class="tools-jsleak-content">' +
@@ -1492,9 +1497,7 @@ var StiffEyesToolsPanel = (function () {
             fetch(url).then(function (r) { return r.text(); }).then(function (text) {
               var ff = collectFindings(text);
               // 标记来源文件
-              var shortUrl = url.replace(/^https?:\/\/[^\/]+\//, '…/');
-              if (shortUrl.length > 60) shortUrl = '…' + shortUrl.slice(-50);
-              ff.forEach(function (f) { f._file = shortUrl; allFindings.push(f); });
+              ff.forEach(function (f) { f._fileUrl = url; allFindings.push(f); });
             }).catch(function () {}).finally(function () {
               pending--;
               var done = jsUrls.length - pending;
@@ -1504,7 +1507,7 @@ var StiffEyesToolsPanel = (function () {
                 var merged = {};
                 allFindings.forEach(function (f) {
                   if (!merged[f.label]) {
-                    merged[f.label] = { label: f.label, level: f.level, seen: {}, values: [], _file: f._file };
+                    merged[f.label] = { label: f.label, level: f.level, seen: {}, values: [], _fileUrl: f._fileUrl };
                   }
                   f.values.forEach(function (v) {
                     var k = v.substring(0, 50);
