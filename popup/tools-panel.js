@@ -527,9 +527,11 @@ var StiffEyesToolsPanel = (function () {
     var cookiePanel = $('toolsPanelCookie');
     if (dropdown) dropdown.classList.remove('hidden');
     var clearDataPanel = $('toolsPanelClearData');
+    var charsetPanel = $('toolsPanelCharset');
     if (uaPanel) uaPanel.classList.add('hidden');
     if (cookiePanel) cookiePanel.classList.add('hidden');
     if (clearDataPanel) clearDataPanel.classList.add('hidden');
+    if (charsetPanel) charsetPanel.classList.add('hidden');
     if ($('toolsStatusBar')) $('toolsStatusBar').classList.add('hidden');
   }
 
@@ -993,61 +995,95 @@ var StiffEyesToolsPanel = (function () {
     });
   }
 
+  var charsetRuleIds = [];
+
+  function getCharsetContentType(encoding) {
+    // 获取当前页面的 Content-Type，修改 charset
+    return new Promise(function (resolve) {
+      chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+        if (!tabs[0]?.id) { resolve('text/html'); return; }
+        chrome.scripting.executeScript({
+          target: { tabId: tabs[0].id },
+          func: function () { return document.contentType || 'text/html'; }
+        }, function (results) {
+          resolve((results && results[0] && results[0].result) || 'text/html');
+        });
+      });
+    });
+  }
+
   function applyCharset(encoding, name) {
     if (!charsetTabId || !charsetCurrentUrl) return;
-    currentCharset = encoding;
 
-    // 使用 declarativeNetRequest 修改 Content-Type
-    var ruleId = 10002;
-    chrome.declarativeNetRequest.updateDynamicRules({
-      removeRuleIds: [ruleId],
-      addRules: [{
-        id: ruleId,
-        priority: 10,
-        action: {
-          type: 'modifyHeaders',
-          responseHeaders: [{
-            header: 'content-type',
-            operation: 'set',
-            value: 'text/html; charset=' + encoding
-          }]
-        },
-        condition: {
-          tabIds: [charsetTabId],
-          resourceTypes: ['main_frame']
-        }
-      }]
-    }, function () {
-      // 记录最近使用
-      trackRecentCharset(encoding);
+    // 先移除旧规则
+    var removeIds = charsetRuleIds.slice();
+    charsetRuleIds = [];
 
-      // 刷新页面以应用编码
-      chrome.tabs.reload(charsetTabId, { bypassCache: false }, function () {
-        $('charsetCurrent').textContent = encoding;
-        renderCharsetList();
-        // 刷新后移除规则
-        setTimeout(function () {
-          chrome.declarativeNetRequest.updateDynamicRules({
-            removeRuleIds: [ruleId]
+    Promise.resolve().then(function () {
+      return getCharsetContentType(encoding);
+    }).then(function (contentType) {
+      // 获取当前 session 规则以生成不冲突的 ID
+      return new Promise(function (resolve) {
+        chrome.declarativeNetRequest.getSessionRules(function (existingRules) {
+          var maxId = 0;
+          (existingRules || []).forEach(function (r) { if (r.id > maxId) maxId = r.id; });
+          var baseId = maxId + 1;
+          charsetRuleIds = [baseId, baseId + 1, baseId + 2, baseId + 3];
+
+          var rules = [
+            { contentType: contentType,               resourceTypes: ['main_frame'] },
+            { contentType: 'text/html',               resourceTypes: ['sub_frame'] },
+            { contentType: 'application/javascript',  resourceTypes: ['script'] },
+            { contentType: 'text/css',                resourceTypes: ['stylesheet'] }
+          ].map(function (def, idx) {
+            return {
+              id: baseId + idx,
+              priority: 10,
+              action: {
+                type: 'modifyHeaders',
+                responseHeaders: [{
+                  header: 'content-type',
+                  operation: 'set',
+                  value: def.contentType + '; charset=' + encoding
+                }]
+              },
+              condition: {
+                tabIds: [charsetTabId],
+                resourceTypes: [def.resourceTypes]
+              }
+            };
           });
-        }, 2000);
+
+          chrome.declarativeNetRequest.updateSessionRules({
+            removeRuleIds: removeIds,
+            addRules: rules
+          }, function () {
+            currentCharset = encoding;
+            trackRecentCharset(encoding);
+            $('charsetCurrent').textContent = encoding;
+            renderCharsetList();
+            // 跳过缓存刷新以确保重新请求
+            chrome.tabs.reload(charsetTabId, { bypassCache: true });
+          });
+        });
       });
     });
   }
 
   function resetCharset() {
-    chrome.declarativeNetRequest.updateDynamicRules({
-      removeRuleIds: [10002]
+    var removeIds = charsetRuleIds.slice();
+    charsetRuleIds = [];
+    chrome.declarativeNetRequest.updateSessionRules({
+      removeRuleIds: removeIds
+    }, function () {
+      currentCharset = '';
+      $('charsetCurrent').textContent = '已还原';
+      if (charsetTabId) {
+        chrome.tabs.reload(charsetTabId, { bypassCache: true });
+      }
+      renderCharsetList();
+      setTimeout(function () { detectCurrentEncoding(); }, 1500);
     });
-    currentCharset = '';
-    $('charsetCurrent').textContent = '已还原';
-    if (charsetTabId) {
-      chrome.tabs.reload(charsetTabId, { bypassCache: false });
-    }
-    renderCharsetList();
-    setTimeout(function () {
-      detectCurrentEncoding();
-    }, 1500);
   }
 
   function trackRecentCharset(encoding) {
