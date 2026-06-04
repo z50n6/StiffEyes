@@ -412,9 +412,8 @@
 
         <!-- 清除数据面板 -->
         <div class="tools-tool-panel hidden" id="toolsPanelClearData">
-          <div class="tools-cleardata-desc">选择要清除的数据类型、范围和目标，清除后无法撤销。</div>
           <div class="tools-cleardata-types" id="clearDataTypes">
-            <label class="tools-cleardata-check tools-cleardata-check-all"><input type="checkbox" id="clearDataSelectAll" /> 全选</label>
+            <label class="tools-cleardata-check tools-cleardata-check-all"><input type="checkbox" id="clearDataSelectAll" /> 全选 <span class="tools-cleardata-hint">— 选择要清除的数据类型和范围，清除后无法撤销</span></label>
             <label class="tools-cleardata-check"><input type="checkbox" value="cookies" checked /> Cookie</label>
             <label class="tools-cleardata-check"><input type="checkbox" value="cache" checked /> 缓存</label>
             <label class="tools-cleardata-check"><input type="checkbox" value="cacheStorage" /> Cache Storage</label>
@@ -427,23 +426,29 @@
             <label class="tools-cleardata-check"><input type="checkbox" value="passwords" /> 密码</label>
           </div>
           <div class="tools-cleardata-row">
-            <span class="tools-filter-label">清除范围</span>
-            <div class="tools-cleardata-toggle">
-              <label class="tools-cleardata-radio"><input type="radio" name="clearDataScope" value="all" checked /> 全部浏览器</label>
-              <label class="tools-cleardata-radio"><input type="radio" name="clearDataScope" value="site" /> 仅当前站点</label>
+            <div class="tools-filter-item">
+              <span class="tools-filter-label">清除范围</span>
+              <div class="tools-select-wrapper">
+                <select class="tools-filter-select" id="clearDataScope">
+                  <option value="site" selected>仅当前站点</option>
+                  <option value="all">全部浏览器</option>
+                </select>
+                <svg class="tools-select-chevron" viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </div>
             </div>
-          </div>
-          <div class="tools-cleardata-row">
-            <span class="tools-filter-label">时间范围</span>
-            <div class="tools-select-wrapper">
-              <select class="tools-filter-select" id="clearDataSince">
-                <option value="3600000">最近 1 小时</option>
-                <option value="86400000">最近 24 小时</option>
-                <option value="604800000">最近 7 天</option>
-                <option value="2419200000" selected>最近 4 周</option>
-                <option value="0">全部时间</option>
-              </select>
-              <svg class="tools-select-chevron" viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <div class="tools-filter-divider"></div>
+            <div class="tools-filter-item">
+              <span class="tools-filter-label">时间范围</span>
+              <div class="tools-select-wrapper">
+                <select class="tools-filter-select" id="clearDataSince">
+                  <option value="3600000">最近 1 小时</option>
+                  <option value="86400000">最近 24 小时</option>
+                  <option value="604800000">最近 7 天</option>
+                  <option value="2419200000" selected>最近 4 周</option>
+                  <option value="0">全部时间</option>
+                </select>
+                <svg class="tools-select-chevron" viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </div>
             </div>
           </div>
           <label class="tools-cleardata-check tools-cleardata-reload">

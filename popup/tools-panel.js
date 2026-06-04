@@ -822,7 +822,7 @@ var StiffEyesToolsPanel = (function () {
 
     // 时间范围
     var since = parseInt($('clearDataSince').value, 10) || 0;
-    var scope = document.querySelector('input[name="clearDataScope"]:checked')?.value || 'all';
+    var scope = $('clearDataScope')?.value || 'site';
 
     btn.disabled = true;
     btn.textContent = '清除中…';

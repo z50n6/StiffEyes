@@ -3210,14 +3210,6 @@ textarea:focus {
 }
 
 /* ── 清除数据面板 ── */
-.tools-cleardata-desc {
-  font-size: 10.5px;
-  color: var(--text-muted);
-  padding: 4px 4px 10px;
-  flex-shrink: 0;
-  line-height: 1.5;
-}
-
 .tools-cleardata-types {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -3258,12 +3250,23 @@ textarea:focus {
   font-size: 12px;
 }
 
+.tools-cleardata-hint {
+  font-weight: 400;
+  font-size: 9.5px;
+  color: var(--text-faint);
+  letter-spacing: 0.02em;
+}
+
 .tools-cleardata-row {
   display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 7px 4px;
+  align-items: stretch;
+  gap: 0;
+  padding: 8px 4px;
+  background: linear-gradient(160deg, rgba(19,19,24,0.98), rgba(22,22,28,0.98));
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
   flex-shrink: 0;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.15);
 }
 
 .tools-cleardata-row .tools-filter-label {
@@ -3278,36 +3281,6 @@ textarea:focus {
 .tools-cleardata-row .tools-select-wrapper {
   flex: 1;
 }
-
-.tools-cleardata-toggle {
-  display: flex;
-  gap: 4px;
-  flex: 1;
-}
-
-.tools-cleardata-radio {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  padding: 5px 0;
-  font-size: 10.5px;
-  font-weight: 500;
-  color: var(--text-muted);
-  background: var(--bg-muted);
-  border: 1px solid var(--border);
-  border-radius: 5px;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-.tools-cleardata-radio:has(input:checked) {
-  background: var(--accent-soft);
-  border-color: var(--accent);
-  color: var(--accent-hover);
-  font-weight: 600;
-}
-.tools-cleardata-radio input { display: none; }
 
 .tools-cleardata-reload {
   padding: 8px 0 4px;
