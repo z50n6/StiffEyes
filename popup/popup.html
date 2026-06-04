@@ -296,7 +296,9 @@
       <div class="tools-body">
         <!-- 悬浮下拉菜单（定位在Tab下方） -->
         <div class="tools-dropdown hidden" id="toolsDropdown">
-          <div class="tools-dropdown-item" data-tool="ua-switcher">UA头伪装</div>
+          <div class="tools-dropdown-item" data-tool="ua-switcher"><span class="tools-dropdown-icon">🎭</span>UA 头伪装</div>
+          <div class="tools-dropdown-item" data-tool="cookie-editor"><span class="tools-dropdown-icon">🍪</span>Cookie 管理器</div>
+          <div class="tools-dropdown-item" data-tool="clear-data"><span class="tools-dropdown-icon">🧹</span>清除数据</div>
         </div>
 
         <!-- UA-Switcher 面板 -->
@@ -305,30 +307,139 @@
           <div class="tools-filter-card">
             <div class="tools-filter-item">
               <span class="tools-filter-label">浏览器</span>
-              <select class="tools-filter-select" id="toolsUaBrowser"></select>
+              <div class="tools-select-wrapper">
+                <select class="tools-filter-select" id="toolsUaBrowser"></select>
+                <svg class="tools-select-chevron" viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </div>
             </div>
+            <div class="tools-filter-divider"></div>
             <div class="tools-filter-item">
               <span class="tools-filter-label">平台</span>
-              <select class="tools-filter-select" id="toolsUaPlatform"></select>
+              <div class="tools-select-wrapper">
+                <select class="tools-filter-select" id="toolsUaPlatform"></select>
+                <svg class="tools-select-chevron" viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </div>
             </div>
           </div>
 
           <!-- 匹配结果 -->
-          <div class="tools-ua-list" id="toolsUaList"></div>
+          <div class="tools-ua-list-container">
+            <div class="tools-ua-list-header">
+              <span class="tools-ua-list-count" id="toolsUaCount">—</span>
+            </div>
+            <div class="tools-ua-list" id="toolsUaList"></div>
+          </div>
 
           <!-- 自定义 UA -->
           <div class="tools-custom-card">
-            <input type="text" class="tools-custom-input" id="toolsUaCustom" placeholder="或粘贴自定义 UA 字符串…" spellcheck="false" />
-            <button type="button" class="tools-btn-apply" id="toolsBtnCustom">应用</button>
+            <svg class="tools-custom-icon" viewBox="0 0 16 16" fill="none"><path d="M3 10L2 14L6 13L14 5L11 2L3 10Z" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <input type="text" class="tools-custom-input" id="toolsUaCustom" placeholder="粘贴自定义 UA 字符串…" spellcheck="false" />
+            <button type="button" class="tools-btn-apply" id="toolsBtnCustom">
+              <svg class="tools-btn-apply-icon" viewBox="0 0 16 16" fill="none"><path d="M4 8l3 3 5-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              应用
+            </button>
           </div>
 
           <!-- 状态栏 -->
           <div class="tools-status-bar hidden" id="toolsStatusBar">
-            <span class="tools-status-dot"></span>
+            <div class="tools-status-indicator">
+              <span class="tools-status-dot"></span>
+              <span class="tools-status-pulse"></span>
+            </div>
             <span class="tools-status-text" id="toolsStatusText"></span>
-            <button type="button" class="tools-btn-action hidden" id="toolsBtnReset">重置</button>
-            <button type="button" class="tools-btn-action hidden" id="toolsBtnTest">测试</button>
+            <div class="tools-status-actions">
+              <button type="button" class="tools-btn-action hidden" id="toolsBtnTest">🔗 测试</button>
+              <button type="button" class="tools-btn-action tools-btn-reset hidden" id="toolsBtnReset">↩ 重置</button>
+            </div>
           </div>
+        </div>
+
+        <!-- Cookie 管理器面板 -->
+        <div class="tools-tool-panel hidden" id="toolsPanelCookie">
+          <div class="tools-cookie-toolbar">
+            <button type="button" class="tools-btn-action" id="cookieBtnRefresh" title="刷新">🔄 刷新</button>
+            <button type="button" class="tools-btn-action" id="cookieBtnCreate" title="新建 Cookie">＋ 新建</button>
+            <button type="button" class="tools-btn-action tools-btn-reset" id="cookieBtnDeleteAll" title="删除全部">🗑 全部删除</button>
+            <span class="tools-cookie-count" id="cookieCount">0 个 Cookie</span>
+          </div>
+          <div class="tools-cookie-list" id="cookieList">
+            <div class="tools-empty">加载中…</div>
+          </div>
+          <!-- 新建/编辑 Cookie 表单（弹层） -->
+          <div class="tools-cookie-form-overlay hidden" id="cookieFormOverlay">
+            <div class="tools-cookie-form">
+              <div class="tools-cookie-form-title" id="cookieFormTitle">新建 Cookie</div>
+              <label class="tools-cookie-field">
+                <span>名称</span>
+                <input type="text" id="cookieFieldName" placeholder="cookie_name" spellcheck="false" />
+              </label>
+              <label class="tools-cookie-field">
+                <span>值</span>
+                <input type="text" id="cookieFieldValue" placeholder="cookie_value" spellcheck="false" />
+              </label>
+              <label class="tools-cookie-field">
+                <span>Domain</span>
+                <input type="text" id="cookieFieldDomain" placeholder=".example.com" spellcheck="false" />
+              </label>
+              <label class="tools-cookie-field">
+                <span>Path</span>
+                <input type="text" id="cookieFieldPath" placeholder="/" spellcheck="false" />
+              </label>
+              <label class="tools-cookie-field">
+                <span>过期时间</span>
+                <input type="text" id="cookieFieldExpires" placeholder="2027-12-31 或留空为 Session" spellcheck="false" />
+              </label>
+              <label class="tools-cookie-field">
+                <span>SameSite</span>
+                <select id="cookieFieldSameSite">
+                  <option value="unspecified">未指定</option>
+                  <option value="no_restriction">None</option>
+                  <option value="lax">Lax</option>
+                  <option value="strict">Strict</option>
+                </select>
+              </label>
+              <div class="tools-cookie-checks">
+                <label><input type="checkbox" id="cookieFieldSecure" /> Secure</label>
+                <label><input type="checkbox" id="cookieFieldHttpOnly" /> HttpOnly</label>
+              </div>
+              <div class="tools-cookie-form-actions">
+                <button type="button" class="tools-btn-apply" id="cookieBtnSave">保存</button>
+                <button type="button" class="tools-btn-action" id="cookieBtnCancel">取消</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 清除数据面板 -->
+        <div class="tools-tool-panel hidden" id="toolsPanelClearData">
+          <div class="tools-cleardata-desc">选择要清除的数据类型和时间范围，清除后无法撤销。</div>
+          <div class="tools-cleardata-types" id="clearDataTypes">
+            <label class="tools-cleardata-check"><input type="checkbox" value="cookies" checked /> Cookie</label>
+            <label class="tools-cleardata-check"><input type="checkbox" value="cache" checked /> 缓存</label>
+            <label class="tools-cleardata-check"><input type="checkbox" value="cacheStorage" /> Cache Storage</label>
+            <label class="tools-cleardata-check"><input type="checkbox" value="history" /> 历史记录</label>
+            <label class="tools-cleardata-check"><input type="checkbox" value="downloads" /> 下载记录</label>
+            <label class="tools-cleardata-check"><input type="checkbox" value="formData" /> 表单数据</label>
+            <label class="tools-cleardata-check"><input type="checkbox" value="localStorage" /> Local Storage</label>
+            <label class="tools-cleardata-check"><input type="checkbox" value="indexedDB" /> IndexedDB</label>
+            <label class="tools-cleardata-check"><input type="checkbox" value="serviceWorkers" /> Service Workers</label>
+            <label class="tools-cleardata-check"><input type="checkbox" value="passwords" /> 密码</label>
+          </div>
+          <div class="tools-cleardata-range">
+            <span class="tools-filter-label">时间范围</span>
+            <div class="tools-select-wrapper">
+              <select class="tools-filter-select" id="clearDataSince">
+                <option value="3600000">最近 1 小时</option>
+                <option value="86400000">最近 24 小时</option>
+                <option value="604800000">最近 7 天</option>
+                <option value="2419200000" selected>最近 4 周</option>
+                <option value="0">全部时间</option>
+              </select>
+              <svg class="tools-select-chevron" viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </div>
+          </div>
+          <button type="button" class="tools-btn-apply" id="clearDataBtn" style="align-self:stretch;justify-content:center;">🧹 立即清除</button>
+          <div class="tools-cleardata-status hidden" id="clearDataStatus"></div>
         </div>
       </div>
     </section>

@@ -1180,6 +1180,8 @@ document.querySelectorAll('#mainTabs .tab').forEach((btn) => {
     document.querySelectorAll('main .panel').forEach((p) => p.classList.remove('active'));
     btn.classList.add('active');
     $(btn.dataset.panel).classList.add('active');
+    // 记住上次打开的标签页
+    chrome.storage.local.set({ active_panel: btn.dataset.panel });
     if (btn.dataset.panel === 'panel-webpack' && window.StiffEyesWebpackPanel && currentTabId) {
       window.StiffEyesWebpackPanel.init(currentTabId);
       window.StiffEyesWebpackPanel.autoExtractIfNeeded();
@@ -1209,6 +1211,18 @@ document.querySelectorAll('#mainTabs .tab').forEach((btn) => {
     }
   });
 });
+
+// 恢复上次打开的标签页
+function restoreLastActivePanel() {
+  chrome.storage.local.get(['active_panel'], function (data) {
+    if (data.active_panel && data.active_panel !== 'panel-scan') {
+      var tabBtn = document.querySelector('#mainTabs .tab[data-panel="' + data.active_panel + '"]');
+      if (tabBtn) {
+        tabBtn.click();
+      }
+    }
+  });
+}
 
 $('btnSettings')?.addEventListener('click', () => {
   chrome.tabs.create({ url: chrome.runtime.getURL('pages/settings.html') });
@@ -1519,4 +1533,6 @@ function applyAppVersion() {
 /* 首屏即构建侧栏，避免空布局导致弹窗被 Chrome 压窄 */
 applyAppVersion();
 buildScanUi();
-init();
+init().then(function () {
+  restoreLastActivePanel();
+});
