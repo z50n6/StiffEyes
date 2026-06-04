@@ -534,7 +534,7 @@ var StiffEyesToolsPanel = (function () {
   }
 
   function hideAllToolPanels() {
-    ['toolsPanelUa', 'toolsPanelCookie', 'toolsPanelClearData'].forEach(function (id) {
+    ['toolsPanelUa', 'toolsPanelCookie', 'toolsPanelClearData', 'toolsPanelCharset'].forEach(function (id) {
       var p = $(id); if (p) p.classList.add('hidden');
     });
     if ($('toolsStatusBar')) $('toolsStatusBar').classList.add('hidden');
@@ -565,6 +565,12 @@ var StiffEyesToolsPanel = (function () {
       var clearPanel = $('toolsPanelClearData');
       if (clearPanel) clearPanel.classList.remove('hidden');
       syncSelectAllState();
+    }
+
+    if (toolId === 'charset') {
+      var charsetPanel = $('toolsPanelCharset');
+      if (charsetPanel) charsetPanel.classList.remove('hidden');
+      initCharsetPanel();
     }
   }
 
@@ -886,6 +892,174 @@ var StiffEyesToolsPanel = (function () {
     selectAllCb.checked = all;
   }
 
+  // ==================== 编码切换 ====================
+
+  var ENCODINGS = [
+    { id:'UTF-8',       name:'UTF-8',           desc:'Unicode 通用' },
+    { id:'GBK',         name:'GBK',             desc:'中文简体' },
+    { id:'GB18030',     name:'GB18030',         desc:'中文简体扩展' },
+    { id:'Big5',        name:'Big5',            desc:'中文繁体' },
+    { id:'Shift_JIS',   name:'Shift_JIS',       desc:'日文' },
+    { id:'EUC-JP',      name:'EUC-JP',          desc:'日文' },
+    { id:'ISO-2022-JP', name:'ISO-2022-JP',     desc:'日文邮件' },
+    { id:'EUC-KR',      name:'EUC-KR',          desc:'韩文' },
+    { id:'windows-1256',name:'Windows-1256',    desc:'阿拉伯文' },
+    { id:'windows-1255',name:'Windows-1255',    desc:'希伯来文' },
+    { id:'windows-1251',name:'Windows-1251',    desc:'西里尔文' },
+    { id:'windows-1253',name:'Windows-1253',    desc:'希腊文' },
+    { id:'windows-1254',name:'Windows-1254',    desc:'土耳其文' },
+    { id:'windows-1257',name:'Windows-1257',    desc:'波罗的文' },
+    { id:'windows-1258',name:'Windows-1258',    desc:'越南文' },
+    { id:'windows-874', name:'Windows-874',     desc:'泰文' },
+    { id:'ISO-8859-2',  name:'ISO-8859-2',      desc:'中欧' },
+    { id:'ISO-8859-7',  name:'ISO-8859-7',      desc:'希腊文' },
+    { id:'ISO-8859-15', name:'ISO-8859-15',     desc:'西欧扩展' },
+    { id:'KOI8-R',      name:'KOI8-R',          desc:'俄文' },
+    { id:'KOI8-U',      name:'KOI8-U',          desc:'乌克兰文' },
+    { id:'Macintosh',   name:'Macintosh',       desc:'西欧 Mac' },
+    { id:'IBM866',      name:'IBM866',          desc:'西里尔 DOS' },
+    { id:'UTF-16LE',    name:'UTF-16LE',        desc:'Unicode LE' }
+  ];
+
+  var currentCharset = '';
+  var charsetTabId = null;
+  var charsetCurrentUrl = '';
+
+  function initCharsetPanel() {
+    getCurrentTabUrl(function (url) {
+      if (!url) {
+        $('charsetCurrent').textContent = '无法获取页面';
+        return;
+      }
+      charsetCurrentUrl = url;
+      detectCurrentEncoding();
+      renderCharsetList();
+    });
+  }
+
+  function detectCurrentEncoding() {
+    $('charsetCurrent').textContent = '检测中…';
+    chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+      if (!tabs[0]?.id) return;
+      charsetTabId = tabs[0].id;
+      try {
+        chrome.scripting.executeScript({
+          target: { tabId: charsetTabId },
+          func: function () { return document.characterSet || document.charset || ''; }
+        }, function (results) {
+          if (results && results[0] && results[0].result) {
+            currentCharset = results[0].result;
+            $('charsetCurrent').textContent = currentCharset;
+          } else {
+            $('charsetCurrent').textContent = '未知';
+          }
+          renderCharsetList();
+        });
+      } catch (e) {
+        $('charsetCurrent').textContent = '无法检测';
+      }
+    });
+  }
+
+  function renderCharsetList() {
+    var el = $('charsetList');
+    el.innerHTML = '';
+    ENCODINGS.forEach(function (enc) {
+      var row = document.createElement('div');
+      row.className = 'tools-charset-row' + (enc.id === currentCharset ? ' active' : '');
+      row.dataset.encoding = enc.id;
+
+      var nameEl = document.createElement('span');
+      nameEl.className = 'tools-charset-row-name';
+      nameEl.textContent = enc.name;
+
+      var descEl = document.createElement('span');
+      descEl.className = 'tools-charset-row-desc';
+      descEl.textContent = enc.desc;
+
+      var check = document.createElement('span');
+      check.className = 'tools-charset-row-check';
+      check.textContent = '✓';
+
+      row.appendChild(nameEl);
+      row.appendChild(descEl);
+      row.appendChild(check);
+
+      row.addEventListener('click', function () {
+        applyCharset(enc.id, enc.name);
+      });
+
+      el.appendChild(row);
+    });
+  }
+
+  function applyCharset(encoding, name) {
+    if (!charsetTabId || !charsetCurrentUrl) return;
+    currentCharset = encoding;
+
+    // 使用 declarativeNetRequest 修改 Content-Type
+    var ruleId = 10002;
+    chrome.declarativeNetRequest.updateDynamicRules({
+      removeRuleIds: [ruleId],
+      addRules: [{
+        id: ruleId,
+        priority: 10,
+        action: {
+          type: 'modifyHeaders',
+          responseHeaders: [{
+            header: 'content-type',
+            operation: 'set',
+            value: 'text/html; charset=' + encoding
+          }]
+        },
+        condition: {
+          tabIds: [charsetTabId],
+          resourceTypes: ['main_frame']
+        }
+      }]
+    }, function () {
+      // 记录最近使用
+      trackRecentCharset(encoding);
+
+      // 刷新页面以应用编码
+      chrome.tabs.reload(charsetTabId, { bypassCache: false }, function () {
+        $('charsetCurrent').textContent = encoding;
+        renderCharsetList();
+        // 刷新后移除规则
+        setTimeout(function () {
+          chrome.declarativeNetRequest.updateDynamicRules({
+            removeRuleIds: [ruleId]
+          });
+        }, 2000);
+      });
+    });
+  }
+
+  function resetCharset() {
+    chrome.declarativeNetRequest.updateDynamicRules({
+      removeRuleIds: [10002]
+    });
+    currentCharset = '';
+    $('charsetCurrent').textContent = '已还原';
+    if (charsetTabId) {
+      chrome.tabs.reload(charsetTabId, { bypassCache: false });
+    }
+    renderCharsetList();
+    setTimeout(function () {
+      detectCurrentEncoding();
+    }, 1500);
+  }
+
+  function trackRecentCharset(encoding) {
+    chrome.storage.local.get(['charset_recent'], function (data) {
+      var recent = data.charset_recent || [];
+      recent = recent.filter(function (e) { return e !== encoding; });
+      recent.unshift(encoding);
+      if (recent.length > 5) recent = recent.slice(0, 5);
+      chrome.storage.local.set({ charset_recent: recent });
+    });
+  }
+
   // ==================== 事件 ====================
 
   function wireEvents() {
@@ -986,6 +1160,10 @@ var StiffEyesToolsPanel = (function () {
         syncSelectAllState();
       });
     }
+
+    // ── 编码切换事件 ──
+    var resetCharsetBtn = $('charsetBtnReset');
+    if (resetCharsetBtn) resetCharsetBtn.addEventListener('click', resetCharset);
   }
 
   function init() {

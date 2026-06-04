@@ -299,6 +299,7 @@
           <div class="tools-dropdown-item" data-tool="ua-switcher"><span class="tools-dropdown-icon">🎭</span>UA 头伪装</div>
           <div class="tools-dropdown-item" data-tool="cookie-editor"><span class="tools-dropdown-icon">🍪</span>Cookie 管理器</div>
           <div class="tools-dropdown-item" data-tool="clear-data"><span class="tools-dropdown-icon">🧹</span>清除数据</div>
+          <div class="tools-dropdown-item" data-tool="charset"><span class="tools-dropdown-icon">🔤</span>编码切换</div>
         </div>
 
         <!-- UA-Switcher 面板 -->
@@ -456,6 +457,16 @@
           </label>
           <button type="button" class="tools-btn-apply" id="clearDataBtn">🧹 立即清除</button>
           <div class="tools-cleardata-status hidden" id="clearDataStatus"></div>
+        </div>
+
+        <!-- 编码切换面板 -->
+        <div class="tools-tool-panel hidden" id="toolsPanelCharset">
+          <div class="tools-charset-current">
+            <span class="tools-charset-label">当前编码</span>
+            <span class="tools-charset-value" id="charsetCurrent">检测中…</span>
+            <button type="button" class="tools-btn-action" id="charsetBtnReset" title="还原默认编码">↩ 还原</button>
+          </div>
+          <div class="tools-charset-list" id="charsetList"></div>
         </div>
       </div>
     </section>

@@ -3315,4 +3315,86 @@ textarea:focus {
   border: 1px solid rgba(239,68,68,0.2);
 }
 
+/* ── 编码切换面板 ── */
+.tools-charset-current {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  flex-shrink: 0;
+}
+
+.tools-charset-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  flex-shrink: 0;
+}
+
+.tools-charset-value {
+  flex: 1;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent);
+  font-family: var(--mono);
+}
+
+.tools-charset-list {
+  flex: 1;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-surface);
+  scrollbar-width: thin;
+  scrollbar-color: #3f3f46 transparent;
+}
+
+.tools-charset-list::-webkit-scrollbar { width: 4px; }
+.tools-charset-list::-webkit-scrollbar-track { background: transparent; }
+.tools-charset-list::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 2px; }
+
+.tools-charset-row {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.025);
+  cursor: pointer;
+  transition: background 0.12s;
+  gap: 10px;
+}
+.tools-charset-row:last-child { border-bottom: none; }
+.tools-charset-row:hover { background: var(--row-hover); }
+.tools-charset-row.active {
+  background: var(--accent-soft);
+  box-shadow: inset 3px 0 0 0 var(--accent);
+}
+
+.tools-charset-row-name {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text);
+}
+.tools-charset-row.active .tools-charset-row-name { color: var(--accent-hover); }
+
+.tools-charset-row-desc {
+  flex: 1;
+  font-size: 10px;
+  color: var(--text-faint);
+  text-align: right;
+}
+
+.tools-charset-row-check {
+  font-size: 12px;
+  color: var(--accent);
+  font-weight: 700;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+.tools-charset-row.active .tools-charset-row-check { opacity: 1; }
+
 /* —— 全局 textarea 覆盖：JWT 面板不受外层 margin 影响 —— */
