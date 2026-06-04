@@ -79,7 +79,7 @@ Chrome 扩展 — 页面资产梳理 · 技术指纹识别 · Spring 端点探�
 | JWK / JKU 注入   | 嵌入 JWK 或引用 JKU（含 PortSwigger 靶场预设密钥对）                                         |
 | KID Path       | `kid` 路径穿越 + `/dev/null` 空密钥签名（HMAC）                                          |
 
-### 🔧 工具箱
+###  工具箱
 
 工具面板包含以下渗透测试辅助工具：
 
