@@ -1,5 +1,5 @@
 // StiffEyes sniff collector — page signals (ISOLATED world)
-// Collects DOM signals for SnowEyesPlus fingerprint engine
+// Collects DOM signals for fingerprint engine
 (function () {
   'use strict';
 
@@ -84,7 +84,7 @@
     // Headers from document (if available — usually not in ISOLATED world)
     var headers = {};
 
-    // Script src URLs (matching SnowEyesPlus behavior — URLs, not inline content)
+    // Script src URLs (URL-based signal collection)
     var scriptSrc = [];
     document.querySelectorAll('script[src]').forEach(function (script) {
       var src = script.getAttribute('src');
@@ -127,7 +127,7 @@
       if (classNames.length > 1800 && ids.length > 500) break;
     }
 
-    // Sample HTML like SnowEyesPlus (keep first 70% + last 30%, max 480KB)
+    // Sample HTML (keep first 70% + last 30%, max 480KB)
     var rawHtml = document.documentElement.outerHTML;
     var htmlLimit = 480000;
     var html = rawHtml.length <= htmlLimit ? rawHtml :

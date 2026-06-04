@@ -10,16 +10,13 @@ importScripts(
 const tabCountsCache = new Map();
 const tabJsMap = {};
 
-// ========== HackBar State ==========
-var _hackbarHeaders = new Map();   // tabId -> {referer, ua, cookie}
-var _hackbarPostData = new Map();  // tabId -> {url, body, timestamp}
 
 // ========== Cloud Bucket State ==========
 let cloudBuckets = [];
 let cloudBucketsLoaded = false;
 const cloudBucketScanJobs = new Map();
 
-// ========== Fingerprint Store (eager header detection like SnowEyesPlus) ==========
+// ========== Fingerprint Store (eager header detection) ==========
 let _fingerprintStorePromise = null;
 let _fingerprintStore = null;
 
@@ -319,72 +316,6 @@ chrome.webRequest.onHeadersReceived.addListener(
 );
 
 
-
-// ========== HackBar Header Rewriting ==========
-chrome.webRequest.onBeforeSendHeaders.addListener(
-  function (details) {
-    var override = _hackbarHeaders.get(details.tabId);
-    if (!override) return {};
-
-    var headers = details.requestHeaders || [];
-    var hasReferer = false, hasUA = false, hasCookie = false;
-
-    for (var i = 0; i < headers.length; i++) {
-      var name = (headers[i].name || '').toLowerCase();
-      if (override.referer && name === 'referer') {
-        headers[i].value = override.referer;
-        hasReferer = true;
-      }
-      if (override.ua && name === 'user-agent') {
-        headers[i].value = override.ua;
-        hasUA = true;
-      }
-      if (override.cookie && name === 'cookie') {
-        headers[i].value = override.cookie;
-        hasCookie = true;
-      }
-    }
-
-    if (override.referer && !hasReferer) {
-      headers.push({ name: 'Referer', value: override.referer });
-    }
-    if (override.ua && !hasUA) {
-      headers.push({ name: 'User-Agent', value: override.ua });
-    }
-    if (override.cookie && !hasCookie) {
-      headers.push({ name: 'Cookie', value: override.cookie });
-    }
-
-    return { requestHeaders: headers };
-  },
-  { urls: ['<all_urls>'] },
-  ['blocking', 'requestHeaders', 'extraHeaders']
-);
-
-// ========== HackBar POST Data Capture ==========
-chrome.webRequest.onBeforeRequest.addListener(
-  function (details) {
-    if (details.method === 'POST' && details.requestBody) {
-      var formData = details.requestBody.formData;
-      if (formData) {
-        var parts = [];
-        for (var key in formData) {
-          if (formData.hasOwnProperty(key)) {
-            var val = Array.isArray(formData[key]) ? formData[key][0] : formData[key];
-            parts.push(key + '=' + val);
-          }
-        }
-        _hackbarPostData.set(details.tabId, {
-          url: details.url,
-          body: parts.join('&'),
-          timestamp: Date.now()
-        });
-      }
-    }
-  },
-  { urls: ['<all_urls>'] },
-  ['requestBody']
-);
 
 // ========== JS Fetching (2-layer fallback) ==========
 async function tryFetchContent(url) {
@@ -1061,90 +992,6 @@ chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
       return false;
     }
 
-    // ========== HackBar ==========
-    case 'HACKBAR_LOAD_URL': {
-      var hackbarTabId = msg.tabId || tabId;
-      chrome.tabs.get(hackbarTabId, function (tab) {
-        if (chrome.runtime.lastError) {
-          sendResponse({ url: null, postData: null, headers: null });
-          return;
-        }
-        var postEntry = _hackbarPostData.get(hackbarTabId);
-        var headerEntry = _hackbarHeaders.get(hackbarTabId) || null;
-        sendResponse({
-          url: tab.url || null,
-          postData: postEntry ? postEntry.body : null,
-          headers: headerEntry
-        });
-      });
-      return true;
-    }
-
-    case 'HACKBAR_SET_HEADERS': {
-      if (tabId == null) { sendResponse({ ok: false }); return false; }
-      _hackbarHeaders.set(tabId, {
-        referer: msg.headers.referer || null,
-        ua: msg.headers.ua || null,
-        cookie: msg.headers.cookie || null
-      });
-      sendResponse({ ok: true });
-      return false;
-    }
-
-    case 'HACKBAR_CLEAR_HEADERS': {
-      if (tabId == null) { sendResponse({ ok: false }); return false; }
-      _hackbarHeaders.delete(tabId);
-      sendResponse({ ok: true });
-      return false;
-    }
-
-    case 'SET_WEBRTC_POLICY': {
-      applyWebRtcPolicy(msg.enabled !== false);
-      sendResponse({ ok: true });
-      return false;
-    }
-
-    case 'HACKBAR_EXECUTE': {
-      var execTabId = msg.tabId || tabId;
-      if (!execTabId) { sendResponse({ ok: false, error: 'no_tab' }); return false; }
-      var execUrl = msg.url;
-      if (msg.method === 'POST') {
-        chrome.scripting.executeScript({
-          target: { tabId: execTabId },
-          world: 'MAIN',
-          func: function (url, params) {
-            var form = document.createElement('form');
-            form.method = 'POST';
-            form.action = url;
-            form.style.display = 'none';
-            var keys = Object.keys(params);
-            for (var i = 0; i < keys.length; i++) {
-              var input = document.createElement('input');
-              input.type = 'hidden';
-              input.name = keys[i];
-              input.value = params[keys[i]];
-              form.appendChild(input);
-            }
-            document.body.appendChild(form);
-            form.submit();
-          },
-          args: [execUrl, msg.postParams || {}]
-        }).then(function () {
-          sendResponse({ ok: true });
-        }).catch(function (err) {
-          sendResponse({ ok: false, error: err.message });
-        });
-      } else {
-        chrome.tabs.update(execTabId, { url: execUrl }, function () {
-          sendResponse({ ok: true });
-        });
-      }
-      return true;
-    }
-
-    // 指纹 DOM 检测：在后台线程运行，避免阻塞 popup UI
-    case 'SNIFF_RUN_DETECTION': {
-      (async function () {
         try {
           var store = await _getFingerprintStore();
           var FP = self.StiffEyesFingerprint;

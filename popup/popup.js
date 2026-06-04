@@ -1260,9 +1260,6 @@ document.querySelectorAll('#mainTabs .tab').forEach((btn) => {
         window.StiffEyesToolsPanel.init();
       }
     }
-    if (btn.dataset.panel === 'panel-hackbar' && window.StiffEyesHackbarPanel && currentTabId) {
-      window.StiffEyesHackbarPanel.init(currentTabId);
-    }
   });
 });
 
