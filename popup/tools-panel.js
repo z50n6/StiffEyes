@@ -529,16 +529,18 @@ var StiffEyesToolsPanel = (function () {
     var clearDataPanel = $('toolsPanelClearData');
     var charsetPanel = $('toolsPanelCharset');
     var batchPanel = $('toolsPanelBatchUrls');
+    var jsleakPanel = $('toolsPanelJsleak');
     if (uaPanel) uaPanel.classList.add('hidden');
     if (cookiePanel) cookiePanel.classList.add('hidden');
     if (clearDataPanel) clearDataPanel.classList.add('hidden');
     if (charsetPanel) charsetPanel.classList.add('hidden');
     if (batchPanel) batchPanel.classList.add('hidden');
+    if (jsleakPanel) jsleakPanel.classList.add('hidden');
     if ($('toolsStatusBar')) $('toolsStatusBar').classList.add('hidden');
   }
 
   function hideAllToolPanels() {
-    ['toolsPanelUa', 'toolsPanelCookie', 'toolsPanelClearData', 'toolsPanelCharset', 'toolsPanelBatchUrls'].forEach(function (id) {
+    ['toolsPanelUa', 'toolsPanelCookie', 'toolsPanelClearData', 'toolsPanelCharset', 'toolsPanelBatchUrls', 'toolsPanelJsleak'].forEach(function (id) {
       var p = $(id); if (p) p.classList.add('hidden');
     });
     if ($('toolsStatusBar')) $('toolsStatusBar').classList.add('hidden');
@@ -581,6 +583,11 @@ var StiffEyesToolsPanel = (function () {
       var batchPanel = $('toolsPanelBatchUrls');
       if (batchPanel) batchPanel.classList.remove('hidden');
       initBatchUrlsPanel();
+    }
+
+    if (toolId === 'jsleak') {
+      var jsleakPanel = $('toolsPanelJsleak');
+      if (jsleakPanel) jsleakPanel.classList.remove('hidden');
     }
   }
 
@@ -627,10 +634,19 @@ var StiffEyesToolsPanel = (function () {
 
   function renderCookieList(cookies) {
     var el = $('cookieList');
-    $('cookieCount').textContent = cookies.length + ' 个 Cookie';
+    var query = ($('cookieSearch')?.value || '').toLowerCase();
+
+    // 搜索过滤
+    if (query) {
+      cookies = cookies.filter(function (c) {
+        return c.name.toLowerCase().indexOf(query) !== -1 || c.value.toLowerCase().indexOf(query) !== -1;
+      });
+    }
+
+    $('cookieCount').textContent = cookies.length;
 
     if (!cookies.length) {
-      el.innerHTML = '<div class="tools-empty">该站点暂无 Cookie</div>';
+      el.innerHTML = '<div class="tools-empty">' + (query ? '无匹配 Cookie' : '该站点暂无 Cookie') + '</div>';
       return;
     }
 
@@ -642,7 +658,6 @@ var StiffEyesToolsPanel = (function () {
       var secureBadge = c.secure ? '<span class="tools-cookie-row-badge">🔒</span>' : '';
       var httpBadge = c.httpOnly ? '<span class="tools-cookie-row-badge">H</span>' : '';
       var sessionBadge = c.session ? '<span class="tools-cookie-row-badge">⏳</span>' : '';
-      // 存储完整 cookie 数据供编辑使用
       var cookieData = escAttr(JSON.stringify({
         name: c.name, value: c.value, domain: c.domain, path: c.path,
         secure: c.secure, httpOnly: c.httpOnly, sameSite: c.sameSite || 'unspecified',
@@ -718,6 +733,60 @@ var StiffEyesToolsPanel = (function () {
         });
       });
     });
+  }
+
+  function exportCookiesJSON() {
+    getCurrentTabUrl(function (url) {
+      if (!url) return;
+      chrome.cookies.getAll({ url: url }, function (cookies) {
+        var exportData = cookies.map(function (c) {
+          return {
+            name: c.name, value: c.value, domain: c.domain, path: c.path,
+            secure: c.secure, httpOnly: c.httpOnly, sameSite: c.sameSite,
+            session: c.session, expirationDate: c.expirationDate
+          };
+        });
+        var json = JSON.stringify(exportData, null, '  ');
+        navigator.clipboard.writeText(json).then(function () {
+          // 视觉反馈
+        }).catch(function () {});
+      });
+    });
+  }
+
+  function showImportForm() {
+    $('cookieImportText').value = '';
+    $('cookieImportWrap').classList.remove('hidden');
+    $('cookieFormWrap').classList.add('hidden');
+  }
+
+  function hideImportForm() {
+    $('cookieImportWrap').classList.add('hidden');
+  }
+
+  function doImportCookies() {
+    var text = $('cookieImportText').value.trim();
+    if (!text) return;
+    try {
+      var arr = JSON.parse(text);
+      if (!Array.isArray(arr)) throw new Error('不是数组');
+      var count = arr.length;
+      arr.forEach(function (c) {
+        var url = (c.secure ? 'https://' : 'http://') + (c.domain || '').replace(/^\./, '') + (c.path || '/');
+        chrome.cookies.set({
+          url: url, name: c.name, value: c.value || '',
+          domain: c.domain, path: c.path || '/',
+          secure: !!c.secure, httpOnly: !!c.httpOnly,
+          sameSite: c.sameSite || 'unspecified',
+          expirationDate: c.expirationDate
+        }, function () {
+          count--;
+          if (count <= 0) { hideImportForm(); refreshCookieList(); }
+        });
+      });
+    } catch (e) {
+      console.warn('JSON parse error:', e.message);
+    }
   }
 
   function openEditForm(row) {
@@ -1228,6 +1297,196 @@ var StiffEyesToolsPanel = (function () {
     URL.revokeObjectURL(url);
   }
 
+  // ==================== JS 泄露扫描 ====================
+
+  var JSLEAK_PATTERNS = [
+    // ── 严重：云服务密钥 / 私钥 ──
+    { label:'阿里云 AccessKey',    pattern:/(?:LTAI|LTA)[A-Za-z0-9]{12,32}/g, level:'critical' },
+    { label:'腾讯云 SecretId',     pattern:/AKID[A-Za-z0-9]{13,40}/g,           level:'critical' },
+    { label:'AWS Access Key',      pattern:/(?:AKIA|ASIA)[0-9A-Z]{16}/g,         level:'critical' },
+    { label:'Google API Key',      pattern:/AIza[0-9A-Za-z\-_]{35}/g,            level:'critical' },
+    { label:'GitHub Token',        pattern:/gh[pousr]_[A-Za-z0-9]{36,255}/g,     level:'critical' },
+    { label:'GitLab Token',        pattern:/glpat-[A-Za-z0-9\-_]{20,64}/g,       level:'critical' },
+    { label:'百度云 AK',          pattern:/AK[A-Za-z0-9]{10,40}/g,               level:'critical' },
+    { label:'京东云 AK',          pattern:/JDC_[A-Z0-9]{28,32}/g,                level:'critical' },
+    { label:'火山引擎 AK',        pattern:/AKLT[a-zA-Z0-9\-_]{8,}/g,             level:'critical' },
+    { label:'私有密钥',           pattern:/-----BEGIN (?:RSA |OPENSSH |EC |DSA )?PRIVATE KEY-----/g, level:'critical' },
+    { label:'JWT Token',           pattern:/eyJ[A-Za-z0-9\-_]{10,}\.[A-Za-z0-9\-_]{10,}\.[A-Za-z0-9\-_]{10,}/g, level:'critical' },
+    { label:'数据库连接串',        pattern:/(?:jdbc|mongodb|redis|mysql|postgresql):\/\/[^\s"']{10,}/gi, level:'critical' },
+    { label:'OpenAI API Key',      pattern:/sk-[A-Za-z0-9]{32,}/g,               level:'critical' },
+    { label:'SaaS 密钥泄露',      pattern:/(?:access_?key|access_?token|api_?key|api_?secret|secret_?key|client_?secret|app_?secret|appSecret|secretKey|auth_?token|consumer_?key|consumer_?secret|encryption_?key|db_?password|database_?password|bucket_?password)\s*[:=]\s*["'][A-Za-z0-9\/+=_\-]{12,}["']/gi, level:'critical' },
+
+    // ── 高：Webhook / Token / 密码 ──
+    { label:'Webhook URL',         pattern:/https?:\/\/(?:hooks\.(?:slack|discord)|oapi\.dingtalk|qyapi\.weixin|open\.feishu)\/[^\s"']{20,}/gi, level:'high' },
+    { label:'硬编码密码',         pattern:/(?:passw(?:or)?d|passwd|pwd|密码)\s*[:=]\s*["'][^"'\s]{4,}["']/gi, level:'high' },
+    { label:'硬编码账号',         pattern:/(?:user_?name|username|account|账号|用户名)\s*[:=]\s*["'][^"'\s]{2,}["']/gi, level:'high' },
+    { label:'内网 IP',            pattern:/\b(?:127\.0\.0\.1|192\.168\.\d{1,3}\.\d{1,3}|10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(?:1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3})\b/g, level:'high' },
+    { label:'银行卡号',           pattern:/\b[1-9]\d{15,18}\b/g,                  level:'high' },
+    { label:'CTF Flag',           pattern:/(?:flag\{|666c6167|Zmxh|&#102|464C4147)/gi, level:'high' },
+
+    // ── 中：敏感路径 / 配置 ──
+    { label:'Swagger 文档',        pattern:/(?:swagger-ui\.html|swagger\.json|api-docs|swagger|swaggerUi|swaggerVersion)/gi, level:'medium' },
+    { label:'Spring Actuator',     pattern:/(?:\/actuator\/(?:env|heapdump|mappings|beans|configprops|gateway))/gi, level:'medium' },
+    { label:'敏感管理路径',       pattern:/\/(?:admin|manage|manager|system|console|dashboard|\.git)\b/gi, level:'medium' },
+    { label:'CORS 配置',          pattern:/(?:Access-Control-Allow-Origin|allow_origin|cors_allow)\s*[:=]\s*\*/gi, level:'medium' },
+    { label:'JSON ID 参数',       pattern:/(?:["'][a-zA-Z_]*[Ii][Dd]["']\s*:\s*\d{2,15})/g, level:'medium' },
+    { label:'弱加密算法',         pattern:/\b(?:md5|aes|des|rc4|ecb)\b/gi,         level:'medium' },
+
+    // ── 低：个人信息 ──
+    { label:'手机号',             pattern:/\b(?:\+?86)?1[3-9]\d{9}\b/g,          level:'low' },
+    { label:'邮箱地址',           pattern:/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g, level:'low' },
+    { label:'身份证号',           pattern:/\b\d{6}(?:18|19|20)?\d{2}(?:0[1-9]|1[0-2])(?:0[1-9]|[12]\d|3[01])\d{3}[\dXx]\b/g, level:'low' },
+    { label:'车牌号',             pattern:/[京津沪渝冀豫云辽黑湘皖鲁新苏浙赣鄂桂甘晋蒙陕吉闽贵粤青藏川宁琼][A-HJ-NP-Z][A-HJ-NP-Z0-9]{4,5}[A-HJ-NP-Z0-9挂学警港澳]/g, level:'low' },
+
+    // ── 信息：框架 / 漏洞标识 ──
+    { label:'明文 ID 参数',       pattern:/[?&](?:id|user_?id|uid|order_?id)=\d{3,}/gi, level:'info' },
+    { label:'URL 跳转参数',       pattern:/[?&](?:redirect|goto|jump|next|return|to|target|url)=/gi, level:'info' },
+    { label:'Shiro RememberMe',    pattern:/(?:rememberMe=|deleteMe)/gi,           level:'info' },
+  ];
+
+  function collectFindings(content) {
+    var findings = [];
+    JSLEAK_PATTERNS.forEach(function (rule) {
+      var matches = content.match(rule.pattern);
+      if (matches && matches.length) {
+        var unique = [];
+        var seen = {};
+        matches.forEach(function (m) {
+          var key = m.substring(0, 50);
+          if (!seen[key]) { seen[key] = true; unique.push(m.length > 100 ? m.substring(0, 100) + '…' : m); }
+        });
+        findings.push({ label: rule.label, level: rule.level, values: unique.slice(0, 10) });
+      }
+    });
+    return findings;
+  }
+
+  function renderFindings(findings) {
+    var listEl = $('jsleakList');
+    var summaryEl = $('jsleakSummary');
+    var total = findings.reduce(function (s, f) { return s + f.values.length; }, 0);
+    summaryEl.textContent = findings.length + ' 类 / ' + total + ' 条';
+
+    if (!findings.length) {
+      listEl.innerHTML = '<div class="tools-empty">🎉 未检测到敏感信息</div>';
+      return;
+    }
+
+    var order = { critical:0, high:1, medium:2, low:3, info:4 };
+    findings.sort(function (a, b) { return (order[a.level]||9) - (order[b.level]||9); });
+
+    var html = '';
+    findings.forEach(function (f) {
+      html += '<div class="tools-jsleak-item">' +
+        '<span class="tools-jsleak-badge ' + f.level + '">' + f.level + '</span>' +
+        '<div class="tools-jsleak-content">' +
+          '<div class="tools-jsleak-label">' + escHtml(f.label) + ' (' + f.values.length + ')</div>' +
+          '<div class="tools-jsleak-values">' + f.values.map(function (v) { return escHtml(v); }).join('<br>') + '</div>' +
+        '</div>' +
+      '</div>';
+    });
+    listEl.innerHTML = html;
+  }
+
+  function scanJsleak() {
+    var btn = $('jsleakBtnScan');
+    var listEl = $('jsleakList');
+    btn.disabled = true; btn.textContent = '扫描中…';
+    $('jsleakSummary').textContent = '';
+    listEl.innerHTML = '<div class="tools-empty">扫描中…</div>';
+
+    chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+      if (!tabs[0]?.id) {
+        listEl.innerHTML = '<div class="tools-empty">无法获取页面</div>';
+        btn.disabled = false; btn.textContent = '🔍 快速扫描';
+        return;
+      }
+      chrome.scripting.executeScript({
+        target: { tabId: tabs[0].id },
+        func: function () {
+          var texts = [document.documentElement.outerHTML];
+          document.querySelectorAll('script:not([src])').forEach(function (s) { texts.push(s.textContent); });
+          return texts.join('\n');
+        }
+      }, function (results) {
+        var content = (results && results[0] && results[0].result) || '';
+        renderFindings(collectFindings(content));
+        btn.disabled = false; btn.textContent = '🔍 快速扫描';
+      });
+    });
+  }
+
+  function deepScanJsleak() {
+    var btn = $('jsleakBtnDeep');
+    var listEl = $('jsleakList');
+    btn.disabled = true; btn.textContent = '深层扫描中…';
+    $('jsleakSummary').textContent = '';
+
+    chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+      if (!tabs[0]?.id) {
+        listEl.innerHTML = '<div class="tools-empty">无法获取页面</div>';
+        btn.disabled = false; btn.textContent = '🔬 深层 JS 扫描';
+        return;
+      }
+      chrome.scripting.executeScript({
+        target: { tabId: tabs[0].id },
+        func: function () {
+          var scripts = document.querySelectorAll('script[src]');
+          var urls = [];
+          scripts.forEach(function (s) { if (s.src) urls.push(s.src); });
+          return urls;
+        }
+      }, function (urlResults) {
+        var jsUrls = (urlResults && urlResults[0] && urlResults[0].result) || [];
+        // 先收集页面内容
+        chrome.scripting.executeScript({
+          target: { tabId: tabs[0].id },
+          func: function () {
+            var texts = [document.documentElement.outerHTML];
+            document.querySelectorAll('script:not([src])').forEach(function (s) { texts.push(s.textContent); });
+            return texts.join('\n');
+          }
+        }, function (inlineResults) {
+          var allContent = (inlineResults && inlineResults[0] && inlineResults[0].result) || '';
+          var pending = jsUrls.length;
+          var allFindings = collectFindings(allContent);
+
+          if (!pending) {
+            renderFindings(allFindings);
+            btn.disabled = false; btn.textContent = '🔬 深层 JS 扫描';
+            return;
+          }
+
+          // 逐个 fetch 外部 JS
+          listEl.innerHTML = '<div class="tools-empty">正在拉取外部 JS (' + pending + ' 个)…</div>';
+          jsUrls.forEach(function (url) {
+            fetch(url).then(function (r) { return r.text(); }).then(function (text) {
+              var ff = collectFindings(text);
+              ff.forEach(function (f) { allFindings.push(f); });
+            }).catch(function () {}).finally(function () {
+              pending--;
+              if (pending <= 0) {
+                // 合并同类项
+                var merged = {};
+                allFindings.forEach(function (f) {
+                  if (!merged[f.label]) { merged[f.label] = { label: f.label, level: f.level, seen: {}, values: [] }; }
+                  f.values.forEach(function (v) {
+                    var k = v.substring(0, 50);
+                    if (!merged[f.label].seen[k]) { merged[f.label].seen[k] = true; merged[f.label].values.push(v); }
+                  });
+                });
+                var finalFindings = Object.values(merged);
+                finalFindings.forEach(function (f) { f.values = f.values.slice(0, 10); });
+                renderFindings(finalFindings);
+                btn.disabled = false; btn.textContent = '🔬 深层 JS 扫描';
+              }
+            });
+          });
+        });
+      });
+    });
+  }
+
   // ==================== 事件 ====================
 
   function wireEvents() {
@@ -1287,6 +1546,23 @@ var StiffEyesToolsPanel = (function () {
     if (cookieDeleteAllBtn) cookieDeleteAllBtn.addEventListener('click', function () {
       if (confirm('确定要删除当前站点所有 Cookie 吗？')) deleteAllCookies();
     });
+
+    var cookieSearch = $('cookieSearch');
+    if (cookieSearch) {
+      cookieSearch.addEventListener('input', function () { refreshCookieList(); });
+    }
+
+    var cookieBtnExport = $('cookieBtnExport');
+    if (cookieBtnExport) cookieBtnExport.addEventListener('click', exportCookiesJSON);
+
+    var cookieBtnImport = $('cookieBtnImport');
+    if (cookieBtnImport) cookieBtnImport.addEventListener('click', showImportForm);
+
+    var cookieBtnImportDo = $('cookieBtnImportDo');
+    if (cookieBtnImportDo) cookieBtnImportDo.addEventListener('click', doImportCookies);
+
+    var cookieBtnImportCancel = $('cookieBtnImportCancel');
+    if (cookieBtnImportCancel) cookieBtnImportCancel.addEventListener('click', hideImportForm);
 
     var cookieBtnSave = $('cookieBtnSave');
     if (cookieBtnSave) cookieBtnSave.addEventListener('click', saveCookieFromForm);
@@ -1363,6 +1639,13 @@ var StiffEyesToolsPanel = (function () {
 
     var batchBtnExport = $('batchBtnExport');
     if (batchBtnExport) batchBtnExport.addEventListener('click', exportBatchUrls);
+
+    // ── JS 泄露扫描 ──
+    var jsleakScanBtn = $('jsleakBtnScan');
+    if (jsleakScanBtn) jsleakScanBtn.addEventListener('click', scanJsleak);
+
+    var jsleakDeepBtn = $('jsleakBtnDeep');
+    if (jsleakDeepBtn) jsleakDeepBtn.addEventListener('click', deepScanJsleak);
   }
 
   function init() {

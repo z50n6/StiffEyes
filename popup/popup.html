@@ -301,6 +301,7 @@
           <div class="tools-dropdown-item" data-tool="clear-data"><span class="tools-dropdown-icon">🧹</span>清除数据</div>
           <div class="tools-dropdown-item" data-tool="charset"><span class="tools-dropdown-icon">🔤</span>编码切换</div>
           <div class="tools-dropdown-item" data-tool="batch-urls"><span class="tools-dropdown-icon">🔗</span>批量开链</div>
+          <div class="tools-dropdown-item" data-tool="jsleak"><span class="tools-dropdown-icon">🚬</span>JS 泄露扫描</div>
         </div>
 
         <!-- UA-Switcher 面板 -->
@@ -359,14 +360,27 @@
         <!-- Cookie 管理器面板 -->
         <div class="tools-tool-panel hidden" id="toolsPanelCookie">
           <div class="tools-cookie-toolbar">
-            <button type="button" class="tools-btn-action" id="cookieBtnRefresh" title="刷新">🔄 刷新</button>
-            <button type="button" class="tools-btn-action" id="cookieBtnCreate" title="新建 Cookie">＋ 新建</button>
-            <button type="button" class="tools-btn-action tools-btn-reset" id="cookieBtnDeleteAll" title="删除全部">🗑 全部删除</button>
-            <span class="tools-cookie-count" id="cookieCount">0 个 Cookie</span>
+            <input type="text" class="tools-cookie-search" id="cookieSearch" placeholder="搜索 Cookie…" spellcheck="false" />
+            <button type="button" class="tools-btn-action" id="cookieBtnRefresh" title="刷新">🔄</button>
+            <button type="button" class="tools-btn-action" id="cookieBtnCreate" title="新建">＋</button>
+            <button type="button" class="tools-btn-action" id="cookieBtnExport" title="导出 JSON">📤</button>
+            <button type="button" class="tools-btn-action" id="cookieBtnImport" title="导入 JSON">📥</button>
+            <button type="button" class="tools-btn-action tools-btn-reset" id="cookieBtnDeleteAll" title="删除全部">🗑</button>
+            <span class="tools-cookie-count" id="cookieCount">0</span>
           </div>
           <div class="tools-cookie-list" id="cookieList">
             <div class="tools-empty">加载中…</div>
           </div>
+          <!-- Cookie 导入弹层 -->
+          <div class="tools-cookie-form-wrap hidden" id="cookieImportWrap">
+            <div class="tools-cookie-form-title">导入 Cookie (JSON)</div>
+            <textarea class="tools-batch-textarea" id="cookieImportText" rows="6" placeholder='粘贴 JSON 数组，如 [{"name":"token","value":"abc","domain":".example.com"}]' spellcheck="false" style="min-height:80px"></textarea>
+            <div class="tools-cookie-form-actions">
+              <button type="button" class="tools-btn-apply" id="cookieBtnImportDo">导入</button>
+              <button type="button" class="tools-btn-action" id="cookieBtnImportCancel">取消</button>
+            </div>
+          </div>
+
           <!-- 新建/编辑 Cookie 表单（内联展开） -->
           <div class="tools-cookie-form-wrap hidden" id="cookieFormWrap">
             <div class="tools-cookie-form-title" id="cookieFormTitle">新建 Cookie</div>
@@ -468,6 +482,18 @@
             <button type="button" class="tools-btn-action" id="charsetBtnReset" title="还原默认编码">↩ 还原</button>
           </div>
           <div class="tools-charset-list" id="charsetList"></div>
+        </div>
+
+        <!-- JS 泄露扫描面板 -->
+        <div class="tools-tool-panel hidden" id="toolsPanelJsleak">
+          <div class="tools-jsleak-toolbar">
+            <button type="button" class="tools-btn-apply" id="jsleakBtnScan">🔍 快速扫描</button>
+            <button type="button" class="tools-btn-action" id="jsleakBtnDeep">🔬 深层扫描</button>
+            <span class="tools-jsleak-summary" id="jsleakSummary"></span>
+          </div>
+          <div class="tools-jsleak-list" id="jsleakList">
+            <div class="tools-empty">点击扫描按钮检测页面 JS 中的敏感信息</div>
+          </div>
         </div>
 
         <!-- 批量网址面板 -->

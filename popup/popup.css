@@ -3099,7 +3099,26 @@ textarea:focus {
   margin-left: auto;
   text-transform: uppercase;
   letter-spacing: 0.04em;
+  flex-shrink: 0;
 }
+
+.tools-cookie-search {
+  flex: 1;
+  min-width: 60px;
+  padding: 4px 8px;
+  font-size: 10.5px;
+  font-family: var(--font);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-muted);
+  color: var(--text);
+}
+.tools-cookie-search:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--glow);
+}
+.tools-cookie-search::placeholder { color: var(--text-faint); }
 
 .tools-cookie-list {
   flex: 1;
@@ -3439,6 +3458,76 @@ textarea:focus {
   transition: opacity 0.12s;
 }
 .tools-charset-row.active .tools-charset-row-check { opacity: 1; }
+
+/* ── JS 泄露扫描面板 ── */
+.tools-jsleak-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  padding: 2px 0;
+}
+
+.tools-jsleak-summary {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-muted);
+  flex: 1;
+}
+
+.tools-jsleak-list {
+  flex: 1;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-surface);
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-color);
+}
+.tools-jsleak-list::-webkit-scrollbar { width: 4px; }
+
+.tools-jsleak-item {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.tools-jsleak-item:last-child { border-bottom: none; }
+
+.tools-jsleak-badge {
+  flex-shrink: 0;
+  padding: 1px 7px;
+  border-radius: 3px;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin-top: 1px;
+}
+.tools-jsleak-badge.critical { background: rgba(239,68,68,0.18); color: #f87171; }
+.tools-jsleak-badge.high    { background: rgba(249,115,22,0.18); color: #fb923c; }
+.tools-jsleak-badge.medium  { background: rgba(234,179,8,0.18);  color: #facc15; }
+.tools-jsleak-badge.low     { background: rgba(96,165,250,0.18); color: #60a5fa; }
+.tools-jsleak-badge.info    { background: rgba(161,161,170,0.18); color: #a1a1aa; }
+
+.tools-jsleak-content {
+  flex: 1;
+  min-width: 0;
+}
+.tools-jsleak-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 2px;
+}
+.tools-jsleak-values {
+  font-size: 9.5px;
+  font-family: var(--mono);
+  color: var(--text-muted);
+  word-break: break-all;
+  line-height: 1.5;
+}
 
 /* ── 批量网址面板 ── */
 .tools-batch-tabs {
