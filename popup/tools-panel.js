@@ -1325,9 +1325,10 @@ var StiffEyesToolsPanel = (function () {
     { label:'Spring Actuator',     pattern:/(?:\/actuator\/(?:env|heapdump|mappings|beans|configprops|gateway))/gi, level:'medium' },
     { label:'敏感管理路径',        pattern:/\/(?:admin|manage|manager|system|console|dashboard|\.git)\b/gi, level:'medium' },
     { label:'CORS 配置',           pattern:/(?:Access-Control-Allow-Origin|allow_origin|cors_allow)\s*[:=]\s*\*/gi, level:'medium' },
-    { label:'明文 ID 泄露',        pattern:/(?:[?&](?:id|user_?id|uid|order_?id)=\d{3,})|(?:"[a-z_]*[Ii][Dd]"\s*:\s*\d{2,15})/gi, level:'medium' },
+    { label:'明文 ID 参数',        pattern:/(?:\b(?:id|\w+id)=\d{2,15}\b(?![-_\\/]))/gi, level:'medium' },
+    { label:'JSON ID 参数',        pattern:/(?:["'][a-zA-Z_]*[Ii][Dd]["']\s*:\s*\d{2,15})/g, level:'medium' },
     { label:'URL 跳转参数',        pattern:/[?&](?:redirect|goto|jump|next|return|to|target|url)=[^&\s]+/gi, level:'medium' },
-    { label:'弱加密算法',          pattern:/\b(?:md5|aes|des|rc4|ecb|base64)\b/gi,    level:'medium' },
+    { label:'加密算法',            pattern:/(?:md5|aes|des|rc4|ecb|base64|bs4)/gi,    level:'medium' },
     { label:'Shiro RememberMe',    pattern:/(?:rememberMe=|deleteMe)/gi,               level:'medium' },
 
     // 🔵 低：个人信息
@@ -1370,13 +1371,13 @@ var StiffEyesToolsPanel = (function () {
     JSLEAK_PATTERNS.forEach(function (rule) {
       var matches = content.match(rule.pattern);
       if (matches && matches.length) {
-        var unique = [];
         var seen = {};
+        var unique = [];
         matches.forEach(function (m) {
-          var key = m.substring(0, 50);
-          if (!seen[key]) { seen[key] = true; unique.push(m.length > 100 ? m.substring(0, 100) + '…' : m); }
+          var key = m.toLowerCase();
+          if (!seen[key]) { seen[key] = true; unique.push(m); }
         });
-        findings.push({ label: rule.label, level: rule.level, values: unique.slice(0, 10) });
+        findings.push({ label: rule.label, level: rule.level, values: unique });
       }
     });
     return findings;
