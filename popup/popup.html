@@ -365,10 +365,10 @@
           <div class="tools-cookie-list" id="cookieList">
             <div class="tools-empty">加载中…</div>
           </div>
-          <!-- 新建/编辑 Cookie 表单（弹层） -->
-          <div class="tools-cookie-form-overlay hidden" id="cookieFormOverlay">
-            <div class="tools-cookie-form">
-              <div class="tools-cookie-form-title" id="cookieFormTitle">新建 Cookie</div>
+          <!-- 新建/编辑 Cookie 表单（内联展开） -->
+          <div class="tools-cookie-form-wrap hidden" id="cookieFormWrap">
+            <div class="tools-cookie-form-title" id="cookieFormTitle">新建 Cookie</div>
+            <div class="tools-cookie-form-grid">
               <label class="tools-cookie-field">
                 <span>名称</span>
                 <input type="text" id="cookieFieldName" placeholder="cookie_name" spellcheck="false" />
@@ -398,22 +398,23 @@
                   <option value="strict">Strict</option>
                 </select>
               </label>
-              <div class="tools-cookie-checks">
-                <label><input type="checkbox" id="cookieFieldSecure" /> Secure</label>
-                <label><input type="checkbox" id="cookieFieldHttpOnly" /> HttpOnly</label>
-              </div>
-              <div class="tools-cookie-form-actions">
-                <button type="button" class="tools-btn-apply" id="cookieBtnSave">保存</button>
-                <button type="button" class="tools-btn-action" id="cookieBtnCancel">取消</button>
-              </div>
+            </div>
+            <div class="tools-cookie-checks">
+              <label><input type="checkbox" id="cookieFieldSecure" /> Secure</label>
+              <label><input type="checkbox" id="cookieFieldHttpOnly" /> HttpOnly</label>
+            </div>
+            <div class="tools-cookie-form-actions">
+              <button type="button" class="tools-btn-apply" id="cookieBtnSave">保存</button>
+              <button type="button" class="tools-btn-action" id="cookieBtnCancel">取消</button>
             </div>
           </div>
         </div>
 
         <!-- 清除数据面板 -->
         <div class="tools-tool-panel hidden" id="toolsPanelClearData">
-          <div class="tools-cleardata-desc">选择要清除的数据类型和时间范围，清除后无法撤销。</div>
+          <div class="tools-cleardata-desc">选择要清除的数据类型、范围和目标，清除后无法撤销。</div>
           <div class="tools-cleardata-types" id="clearDataTypes">
+            <label class="tools-cleardata-check tools-cleardata-check-all"><input type="checkbox" id="clearDataSelectAll" /> 全选</label>
             <label class="tools-cleardata-check"><input type="checkbox" value="cookies" checked /> Cookie</label>
             <label class="tools-cleardata-check"><input type="checkbox" value="cache" checked /> 缓存</label>
             <label class="tools-cleardata-check"><input type="checkbox" value="cacheStorage" /> Cache Storage</label>
@@ -425,7 +426,14 @@
             <label class="tools-cleardata-check"><input type="checkbox" value="serviceWorkers" /> Service Workers</label>
             <label class="tools-cleardata-check"><input type="checkbox" value="passwords" /> 密码</label>
           </div>
-          <div class="tools-cleardata-range">
+          <div class="tools-cleardata-row">
+            <span class="tools-filter-label">清除范围</span>
+            <div class="tools-cleardata-toggle">
+              <label class="tools-cleardata-radio"><input type="radio" name="clearDataScope" value="all" checked /> 全部浏览器</label>
+              <label class="tools-cleardata-radio"><input type="radio" name="clearDataScope" value="site" /> 仅当前站点</label>
+            </div>
+          </div>
+          <div class="tools-cleardata-row">
             <span class="tools-filter-label">时间范围</span>
             <div class="tools-select-wrapper">
               <select class="tools-filter-select" id="clearDataSince">
@@ -438,7 +446,10 @@
               <svg class="tools-select-chevron" viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </div>
           </div>
-          <button type="button" class="tools-btn-apply" id="clearDataBtn" style="align-self:stretch;justify-content:center;">🧹 立即清除</button>
+          <label class="tools-cleardata-check tools-cleardata-reload">
+            <input type="checkbox" id="clearDataReload" checked /> 清除后重新加载当前标签页
+          </label>
+          <button type="button" class="tools-btn-apply" id="clearDataBtn">🧹 立即清除</button>
           <div class="tools-cleardata-status hidden" id="clearDataStatus"></div>
         </div>
       </div>

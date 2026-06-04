@@ -564,6 +564,7 @@ var StiffEyesToolsPanel = (function () {
     if (toolId === 'clear-data') {
       var clearPanel = $('toolsPanelClearData');
       if (clearPanel) clearPanel.classList.remove('hidden');
+      syncSelectAllState();
     }
   }
 
@@ -698,7 +699,7 @@ var StiffEyesToolsPanel = (function () {
 
   function openEditForm(row) {
     cookieEditTarget = row || null;
-    var form = $('cookieFormOverlay');
+    var form = $('cookieFormWrap');
     var title = $('cookieFormTitle');
     form.classList.remove('hidden');
 
@@ -730,7 +731,7 @@ var StiffEyesToolsPanel = (function () {
   }
 
   function closeCookieForm() {
-    $('cookieFormOverlay').classList.add('hidden');
+    $('cookieFormWrap').classList.add('hidden');
     cookieEditTarget = null;
   }
 
@@ -821,30 +822,68 @@ var StiffEyesToolsPanel = (function () {
 
     // 时间范围
     var since = parseInt($('clearDataSince').value, 10) || 0;
+    var scope = document.querySelector('input[name="clearDataScope"]:checked')?.value || 'all';
 
-    // 禁用按钮
     btn.disabled = true;
     btn.textContent = '清除中…';
-
     statusEl.classList.add('hidden');
+
     var options = since ? { since: new Date().getTime() - since } : { since: 0 };
 
-    chrome.browsingData.remove(options, dataTypes, function () {
-      if (chrome.runtime.lastError) {
-        statusEl.className = 'tools-cleardata-status error';
-        statusEl.textContent = '清除失败: ' + chrome.runtime.lastError.message;
-        statusEl.classList.remove('hidden');
-      } else {
-        statusEl.className = 'tools-cleardata-status success';
-        statusEl.textContent = '✓ 已成功清除所选数据';
-        statusEl.classList.remove('hidden');
-        setTimeout(function () {
-          statusEl.classList.add('hidden');
-        }, 4000);
-      }
-      btn.disabled = false;
-      btn.textContent = '🧹 立即清除';
-    });
+    function doClear(origins) {
+      if (origins) options.origins = origins;
+      chrome.browsingData.remove(options, dataTypes, function () {
+        if (chrome.runtime.lastError) {
+          statusEl.className = 'tools-cleardata-status error';
+          statusEl.textContent = '清除失败: ' + chrome.runtime.lastError.message;
+          statusEl.classList.remove('hidden');
+          btn.disabled = false;
+          btn.textContent = '🧹 立即清除';
+        } else {
+          var desc = origins ? '当前站点' : '全局';
+          var reloadCb = $('clearDataReload');
+          if (reloadCb && reloadCb.checked) {
+            chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+              if (tabs[0]?.id) {
+                chrome.tabs.reload(tabs[0].id, { bypassCache: true });
+              }
+            });
+          }
+          statusEl.className = 'tools-cleardata-status success';
+          statusEl.textContent = '✓ 已成功清除（' + desc + '）';
+          statusEl.classList.remove('hidden');
+          setTimeout(function () { statusEl.classList.add('hidden'); }, 4000);
+          btn.disabled = false;
+          btn.textContent = '🧹 立即清除';
+        }
+      });
+    }
+
+    if (scope === 'site') {
+      getCurrentTabUrl(function (url) {
+        if (!url) {
+          statusEl.className = 'tools-cleardata-status error';
+          statusEl.textContent = '无法获取当前站点信息';
+          statusEl.classList.remove('hidden');
+          btn.disabled = false;
+          btn.textContent = '🧹 立即清除';
+          return;
+        }
+        var origin = new URL(url).origin;
+        doClear([origin]);
+      });
+    } else {
+      doClear(null);
+    }
+  }
+
+  function syncSelectAllState() {
+    var selectAllCb = $('clearDataSelectAll');
+    if (!selectAllCb) return;
+    var checks = document.querySelectorAll('#clearDataTypes input[type="checkbox"]:not(#clearDataSelectAll)');
+    var all = checks.length > 0;
+    checks.forEach(function (cb) { if (!cb.checked) all = false; });
+    selectAllCb.checked = all;
   }
 
   // ==================== 事件 ====================
@@ -913,14 +952,6 @@ var StiffEyesToolsPanel = (function () {
     var cookieBtnCancel = $('cookieBtnCancel');
     if (cookieBtnCancel) cookieBtnCancel.addEventListener('click', closeCookieForm);
 
-    // 点击弹层背景关闭
-    var cookieOverlay = $('cookieFormOverlay');
-    if (cookieOverlay) {
-      cookieOverlay.addEventListener('click', function (e) {
-        if (e.target === cookieOverlay) closeCookieForm();
-      });
-    }
-
     // Cookie 表单回车保存
     ['cookieFieldName', 'cookieFieldValue', 'cookieFieldDomain', 'cookieFieldPath', 'cookieFieldExpires'].forEach(function (id) {
       var el = $('cookieField' + id.replace('cookieField', ''));
@@ -935,6 +966,26 @@ var StiffEyesToolsPanel = (function () {
     // ── 清除数据事件 ──
     var clearBtn = $('clearDataBtn');
     if (clearBtn) clearBtn.addEventListener('click', clearBrowsingData);
+
+    // 全选/取消全选
+    var selectAllCb = $('clearDataSelectAll');
+    if (selectAllCb) {
+      selectAllCb.addEventListener('change', function () {
+        var checked = selectAllCb.checked;
+        document.querySelectorAll('#clearDataTypes input[type="checkbox"]:not(#clearDataSelectAll)').forEach(function (cb) {
+          cb.checked = checked;
+        });
+      });
+    }
+
+    // 子复选框变动时同步全选状态
+    var clearDataTypes = $('clearDataTypes');
+    if (clearDataTypes) {
+      clearDataTypes.addEventListener('change', function (e) {
+        if (e.target === selectAllCb) return;
+        syncSelectAllState();
+      });
+    }
   }
 
   function init() {

@@ -3135,37 +3135,27 @@ textarea:focus {
 .tools-cookie-row:hover .tools-cookie-row-del { opacity: 1; }
 .tools-cookie-row-del:hover { background: rgba(239,68,68,0.15); color: #f87171; }
 
-/* ── Cookie 表单弹层 ── */
-.tools-cookie-form-overlay {
-  position: absolute;
-  inset: 0;
-  z-index: 20;
-  background: rgba(9,9,11,0.85);
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  padding-top: 20px;
-}
-.tools-cookie-form-overlay.hidden { display: none; }
-
-.tools-cookie-form {
-  width: 100%;
-  max-width: 340px;
-  padding: 14px 16px;
+/* ── Cookie 表单（内联）── */
+.tools-cookie-form-wrap {
+  padding: 10px 12px;
   background: var(--bg-surface);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-lg);
-  box-shadow: 0 12px 32px rgba(0,0,0,0.6);
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  flex-shrink: 0;
 }
+.tools-cookie-form-wrap.hidden { display: none; }
 
 .tools-cookie-form-title {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
-  color: var(--text);
-  margin-bottom: 2px;
+  color: var(--accent);
+  margin-bottom: 6px;
+}
+
+.tools-cookie-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 10px;
 }
 
 .tools-cookie-field {
@@ -3221,17 +3211,18 @@ textarea:focus {
 
 /* ── 清除数据面板 ── */
 .tools-cleardata-desc {
-  font-size: 10px;
+  font-size: 10.5px;
   color: var(--text-muted);
-  padding: 2px 2px 6px;
+  padding: 4px 4px 10px;
   flex-shrink: 0;
+  line-height: 1.5;
 }
 
 .tools-cleardata-types {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 4px 8px;
-  padding: 8px 10px;
+  gap: 5px 10px;
+  padding: 12px 14px;
   background: var(--bg-surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -3241,29 +3232,41 @@ textarea:focus {
 .tools-cleardata-check {
   display: flex;
   align-items: center;
-  gap: 5px;
-  font-size: 11px;
+  gap: 6px;
+  font-size: 11.5px;
   font-weight: 500;
   color: var(--text);
   cursor: pointer;
-  padding: 2px 0;
+  padding: 3px 0;
+  transition: color 0.12s;
 }
+.tools-cleardata-check:hover { color: var(--accent-hover); }
 .tools-cleardata-check input[type="checkbox"] {
   accent-color: var(--accent);
-  width: 13px;
-  height: 13px;
+  width: 14px;
+  height: 14px;
   cursor: pointer;
-}
-
-.tools-cleardata-range {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 4px 2px;
   flex-shrink: 0;
 }
 
-.tools-cleardata-range .tools-filter-label {
+.tools-cleardata-check-all {
+  grid-column: 1 / -1;
+  padding-bottom: 8px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--border);
+  font-weight: 700;
+  font-size: 12px;
+}
+
+.tools-cleardata-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 4px;
+  flex-shrink: 0;
+}
+
+.tools-cleardata-row .tools-filter-label {
   flex-shrink: 0;
   font-size: 10px;
   font-weight: 600;
@@ -3272,17 +3275,61 @@ textarea:focus {
   letter-spacing: 0.06em;
 }
 
-.tools-cleardata-range .tools-select-wrapper {
+.tools-cleardata-row .tools-select-wrapper {
   flex: 1;
 }
 
+.tools-cleardata-toggle {
+  display: flex;
+  gap: 4px;
+  flex: 1;
+}
+
+.tools-cleardata-radio {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 5px 0;
+  font-size: 10.5px;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: var(--bg-muted);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.tools-cleardata-radio:has(input:checked) {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent-hover);
+  font-weight: 600;
+}
+.tools-cleardata-radio input { display: none; }
+
+.tools-cleardata-reload {
+  padding: 8px 0 4px;
+  font-size: 11px;
+}
+
+#clearDataBtn {
+  align-self: stretch;
+  justify-content: center;
+  padding: 10px;
+  font-size: 12px;
+  margin-top: 2px;
+}
+
 .tools-cleardata-status {
-  padding: 8px 12px;
+  padding: 10px 14px;
   border-radius: var(--radius-sm);
   font-size: 11px;
-  font-weight: 500;
+  font-weight: 600;
   text-align: center;
   flex-shrink: 0;
+  margin-top: 6px;
 }
 .tools-cleardata-status.success {
   background: rgba(52,168,83,0.15);
