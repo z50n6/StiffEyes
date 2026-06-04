@@ -1175,3 +1175,106 @@ chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
   }
   return false;
 });
+
+// ========== 右键菜单：编码切换 & UA 伪装 ==========
+
+var CTX_CHARSETS = [
+  'UTF-8','GBK','GB18030','Big5','Shift_JIS','EUC-JP','ISO-2022-JP','EUC-KR',
+  'windows-1256','windows-1255','windows-1251','windows-1253',
+  'windows-1254','windows-1257','windows-1258','windows-874',
+  'ISO-8859-2','ISO-8859-7','ISO-8859-15','KOI8-R','KOI8-U',
+  'Macintosh','IBM866','UTF-16LE'
+];
+
+var CTX_UAS = [
+  { label:'Chrome 131 · Windows',   ua:'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36' },
+  { label:'Chrome 131 · macOS',     ua:'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36' },
+  { label:'Firefox 134 · Windows',  ua:'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:134.0) Gecko/20100101 Firefox/134.0' },
+  { label:'Firefox 134 · macOS',    ua:'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:134.0) Gecko/20100101 Firefox/134.0' },
+  { label:'Safari 18.2 · macOS',    ua:'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.2 Safari/605.1.15' },
+  { label:'Safari 18.2 · iOS',      ua:'Mozilla/5.0 (iPhone; CPU iPhone OS 18_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.2 Mobile/15E148 Safari/604.1' },
+  { label:'Edge 131 · Windows',     ua:'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 Edg/131.0.0.0' },
+  { label:'Googlebot Smartphone',   ua:'Mozilla/5.0 (Linux; Android 6.0.1; Nexus 5X Build/MMB29P) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.6778.135 Mobile Safari/537.36 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)' }
+];
+
+function buildContextMenus() {
+  // 清除旧菜单（SW 重启时重建）
+  chrome.contextMenus.removeAll(function () {
+    // ── 编码切换 ──
+    chrome.contextMenus.create({ id:'charset-title', title:'编码切换', contexts:['all'] });
+    CTX_CHARSETS.forEach(function (enc) {
+      chrome.contextMenus.create({
+        id: 'charset-' + enc,
+        parentId: 'charset-title',
+        title: enc,
+        contexts: ['all']
+      });
+    });
+
+    // ── UA 头伪装 ──
+    chrome.contextMenus.create({ id:'ua-title', title:'UA 头伪装', contexts:['all'] });
+    CTX_UAS.forEach(function (item, idx) {
+      chrome.contextMenus.create({
+        id: 'ua-' + idx,
+        parentId: 'ua-title',
+        title: item.label,
+        contexts: ['all']
+      });
+    });
+    chrome.contextMenus.create({ id:'ua-sep', type:'separator', parentId:'ua-title', contexts:['all'] });
+    chrome.contextMenus.create({ id:'ua-reset', parentId:'ua-title', title:'重置为默认 UA', contexts:['all'] });
+  });
+}
+
+// SW 启动时建立菜单
+buildContextMenus();
+chrome.runtime.onInstalled.addListener(buildContextMenus);
+
+chrome.contextMenus.onClicked.addListener(function (info, tab) {
+  if (!tab?.id) return;
+
+  // ── 编码切换 ──
+  if (info.menuItemId.startsWith('charset-')) {
+    var encoding = info.menuItemId.replace('charset-', '');
+    var baseId = Date.now() % 1000000 + 100;
+    var ruleDefs = [
+      { ct:'text/html',               rt:'main_frame' },
+      { ct:'text/html',               rt:'sub_frame' },
+      { ct:'application/javascript',  rt:'script' },
+      { ct:'text/css',                rt:'stylesheet' }
+    ];
+    var addRules = ruleDefs.map(function (def, idx) {
+      return {
+        id: baseId + idx, priority: 10,
+        action: { type:'modifyHeaders', responseHeaders:[{ header:'content-type', operation:'set', value: def.ct + '; charset=' + encoding }] },
+        condition: { tabIds: [tab.id], resourceTypes: [def.rt] }
+      };
+    });
+    chrome.declarativeNetRequest.updateSessionRules({ addRules: addRules }, function () {
+      chrome.tabs.reload(tab.id, { bypassCache: true });
+    });
+  }
+
+  // ── UA 伪装 ──
+  if (info.menuItemId.startsWith('ua-')) {
+    var idx = parseInt(info.menuItemId.replace('ua-', ''), 10);
+    var selected = CTX_UAS[idx];
+    if (!selected) return;
+    chrome.storage.local.set({ ua_override: selected.ua, ua_active_label: selected.label });
+    chrome.declarativeNetRequest.updateDynamicRules({
+      removeRuleIds: [10001],
+      addRules: [{
+        id: 10001, priority: 1,
+        action: { type:'modifyHeaders', requestHeaders:[{ header:'user-agent', operation:'set', value: selected.ua }] },
+        condition: { urlFilter:'*', resourceTypes:['main_frame','sub_frame','script','xmlhttprequest','websocket','image','font','stylesheet','media','ping','csp_report','other'] }
+      }]
+    });
+    chrome.tabs.reload(tab.id, { bypassCache: true });
+  }
+
+  if (info.menuItemId === 'ua-reset') {
+    chrome.storage.local.set({ ua_override: '', ua_active_label: '' });
+    chrome.declarativeNetRequest.updateDynamicRules({ removeRuleIds: [10001] });
+    chrome.tabs.reload(tab.id, { bypassCache: true });
+  }
+});

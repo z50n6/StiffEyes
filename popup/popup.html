@@ -300,6 +300,7 @@
           <div class="tools-dropdown-item" data-tool="cookie-editor"><span class="tools-dropdown-icon">🍪</span>Cookie 管理器</div>
           <div class="tools-dropdown-item" data-tool="clear-data"><span class="tools-dropdown-icon">🧹</span>清除数据</div>
           <div class="tools-dropdown-item" data-tool="charset"><span class="tools-dropdown-icon">🔤</span>编码切换</div>
+          <div class="tools-dropdown-item" data-tool="batch-urls"><span class="tools-dropdown-icon">🔗</span>批量开链</div>
         </div>
 
         <!-- UA-Switcher 面板 -->
@@ -467,6 +468,30 @@
             <button type="button" class="tools-btn-action" id="charsetBtnReset" title="还原默认编码">↩ 还原</button>
           </div>
           <div class="tools-charset-list" id="charsetList"></div>
+        </div>
+
+        <!-- 批量网址面板 -->
+        <div class="tools-tool-panel hidden" id="toolsPanelBatchUrls">
+          <div class="tools-batch-tabs">
+            <button type="button" class="tools-batch-tab active" data-panel="batchOpen">打开网址</button>
+            <button type="button" class="tools-batch-tab" data-panel="batchSave">提取网址</button>
+          </div>
+          <div class="tools-batch-panel" id="batchOpenPanel">
+            <textarea class="tools-batch-textarea" id="batchUrlInput" rows="10" placeholder="每行一个 URL，粘贴后点击「打开全部」…" spellcheck="false"></textarea>
+            <div class="tools-batch-row">
+              <span class="tools-batch-count" id="batchOpenCount">0 个网址</span>
+              <button type="button" class="tools-btn-action" id="batchBtnClear">清空</button>
+              <button type="button" class="tools-btn-apply" id="batchBtnOpen">打开全部</button>
+            </div>
+          </div>
+          <div class="tools-batch-panel hidden" id="batchSavePanel">
+            <textarea class="tools-batch-textarea" id="batchUrlOutput" rows="10" readonly placeholder="当前窗口的标签页 URL…"></textarea>
+            <div class="tools-batch-row">
+              <span class="tools-batch-count" id="batchSaveCount">0 个网址</span>
+              <button type="button" class="tools-btn-action" id="batchBtnCopy">复制</button>
+              <button type="button" class="tools-btn-action" id="batchBtnExport">导出 TXT</button>
+            </div>
+          </div>
         </div>
       </div>
     </section>

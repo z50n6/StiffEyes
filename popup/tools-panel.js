@@ -528,15 +528,17 @@ var StiffEyesToolsPanel = (function () {
     if (dropdown) dropdown.classList.remove('hidden');
     var clearDataPanel = $('toolsPanelClearData');
     var charsetPanel = $('toolsPanelCharset');
+    var batchPanel = $('toolsPanelBatchUrls');
     if (uaPanel) uaPanel.classList.add('hidden');
     if (cookiePanel) cookiePanel.classList.add('hidden');
     if (clearDataPanel) clearDataPanel.classList.add('hidden');
     if (charsetPanel) charsetPanel.classList.add('hidden');
+    if (batchPanel) batchPanel.classList.add('hidden');
     if ($('toolsStatusBar')) $('toolsStatusBar').classList.add('hidden');
   }
 
   function hideAllToolPanels() {
-    ['toolsPanelUa', 'toolsPanelCookie', 'toolsPanelClearData', 'toolsPanelCharset'].forEach(function (id) {
+    ['toolsPanelUa', 'toolsPanelCookie', 'toolsPanelClearData', 'toolsPanelCharset', 'toolsPanelBatchUrls'].forEach(function (id) {
       var p = $(id); if (p) p.classList.add('hidden');
     });
     if ($('toolsStatusBar')) $('toolsStatusBar').classList.add('hidden');
@@ -574,6 +576,12 @@ var StiffEyesToolsPanel = (function () {
       if (charsetPanel) charsetPanel.classList.remove('hidden');
       initCharsetPanel();
     }
+
+    if (toolId === 'batch-urls') {
+      var batchPanel = $('toolsPanelBatchUrls');
+      if (batchPanel) batchPanel.classList.remove('hidden');
+      initBatchUrlsPanel();
+    }
   }
 
   // ==================== Cookie 管理器 ====================
@@ -601,19 +609,9 @@ var StiffEyesToolsPanel = (function () {
         $('cookieList').innerHTML = '<div class="tools-empty">无法获取当前页面</div>';
         return;
       }
-      var domain = extractHost(url);
-      chrome.cookies.getAll({ domain: domain }, function (cookies) {
-        renderCookieList(cookies, domain);
-      });
-      // 也尝试不带前导点的根域
-      chrome.cookies.getAll({}, function (all) {
-        var matched = all.filter(function (c) {
-          return url.indexOf(c.domain.replace(/^\./, '')) !== -1 ||
-                 c.domain.replace(/^\./, '').indexOf(domain.replace(/^\./, '')) !== -1;
-        });
-        if (matched.length > 0) {
-          renderCookieList(matched, domain);
-        }
+      // 通过完整匹配获取当前站点的所有 cookie
+      chrome.cookies.getAll({ url: url }, function (cookies) {
+        renderCookieList(cookies);
       });
     });
   }
@@ -627,7 +625,7 @@ var StiffEyesToolsPanel = (function () {
     }
   }
 
-  function renderCookieList(cookies, domain) {
+  function renderCookieList(cookies) {
     var el = $('cookieList');
     $('cookieCount').textContent = cookies.length + ' 个 Cookie';
 
@@ -644,7 +642,13 @@ var StiffEyesToolsPanel = (function () {
       var secureBadge = c.secure ? '<span class="tools-cookie-row-badge">🔒</span>' : '';
       var httpBadge = c.httpOnly ? '<span class="tools-cookie-row-badge">H</span>' : '';
       var sessionBadge = c.session ? '<span class="tools-cookie-row-badge">⏳</span>' : '';
-      html += '<div class="tools-cookie-row" data-name="' + escAttr(c.name) + '" data-domain="' + escAttr(c.domain) + '" data-path="' + escAttr(c.path) + '">' +
+      // 存储完整 cookie 数据供编辑使用
+      var cookieData = escAttr(JSON.stringify({
+        name: c.name, value: c.value, domain: c.domain, path: c.path,
+        secure: c.secure, httpOnly: c.httpOnly, sameSite: c.sameSite || 'unspecified',
+        session: c.session, expirationDate: c.expirationDate || 0
+      }));
+      html += '<div class="tools-cookie-row" data-cookie="' + cookieData + '">' +
         '<span class="tools-cookie-row-name" title="' + escAttr(c.name) + '">' + escHtml(c.name) + '</span>' +
         '<span class="tools-cookie-row-value" title="' + escAttr(c.value) + '">' + escHtml(c.value) + '</span>' +
         secureBadge + httpBadge + sessionBadge +
@@ -674,27 +678,38 @@ var StiffEyesToolsPanel = (function () {
   }
 
   function deleteCookieRow(row) {
-    var name = row.dataset.name;
-    var url = 'https://' + row.dataset.domain.replace(/^\./, '') + row.dataset.path;
-    chrome.cookies.remove({ url: url, name: name }, function (result) {
-      refreshCookieList();
+    var c = parseCookieData(row);
+    if (!c) return;
+    var protocol = c.secure ? 'https://' : 'http://';
+    var url = protocol + c.domain.replace(/^\./, '') + c.path;
+    chrome.cookies.remove({ url: url, name: c.name }, function () {
+      if (chrome.runtime.lastError) {
+        // 如果 secure 判断错了，尝试另一种协议
+        var altProtocol = c.secure ? 'http://' : 'https://';
+        chrome.cookies.remove({ url: altProtocol + c.domain.replace(/^\./, '') + c.path, name: c.name }, function () {
+          refreshCookieList();
+        });
+      } else {
+        refreshCookieList();
+      }
     });
+  }
+
+  function parseCookieData(row) {
+    try {
+      return JSON.parse(row.dataset.cookie || 'null');
+    } catch (e) {
+      return null;
+    }
   }
 
   function deleteAllCookies() {
     getCurrentTabUrl(function (url) {
       if (!url) return;
-      var domain = extractHost(url);
-      chrome.cookies.getAll({}, function (all) {
-        var matched = all.filter(function (c) {
-          return url.indexOf(c.domain.replace(/^\./, '')) !== -1;
-        });
-        if (matched.length === 0) {
-          refreshCookieList();
-          return;
-        }
-        var count = matched.length;
-        matched.forEach(function (c) {
+      chrome.cookies.getAll({ url: url }, function (cookies) {
+        if (!cookies.length) { refreshCookieList(); return; }
+        var count = cookies.length;
+        cookies.forEach(function (c) {
           var cookieUrl = (c.secure ? 'https://' : 'http://') + c.domain.replace(/^\./, '') + c.path;
           chrome.cookies.remove({ url: cookieUrl, name: c.name }, function () {
             count--;
@@ -713,14 +728,21 @@ var StiffEyesToolsPanel = (function () {
 
     if (row) {
       title.textContent = '编辑 Cookie';
-      $('cookieFieldName').value = row.dataset.name || '';
-      $('cookieFieldValue').value = '';
-      $('cookieFieldDomain').value = row.dataset.domain || '';
-      $('cookieFieldPath').value = row.dataset.path || '';
-      $('cookieFieldExpires').value = '';
-      $('cookieFieldSameSite').value = 'unspecified';
-      $('cookieFieldSecure').checked = false;
-      $('cookieFieldHttpOnly').checked = false;
+      var c = parseCookieData(row);
+      if (c) {
+        $('cookieFieldName').value = c.name;
+        $('cookieFieldValue').value = c.value;
+        $('cookieFieldDomain').value = c.domain;
+        $('cookieFieldPath').value = c.path;
+        $('cookieFieldSecure').checked = c.secure;
+        $('cookieFieldHttpOnly').checked = c.httpOnly;
+        $('cookieFieldSameSite').value = c.sameSite || 'unspecified';
+        if (c.expirationDate && !c.session) {
+          $('cookieFieldExpires').value = new Date(c.expirationDate * 1000).toISOString().slice(0, 19).replace('T', ' ');
+        } else {
+          $('cookieFieldExpires').value = '';
+        }
+      }
     } else {
       title.textContent = '新建 Cookie';
       $('cookieFieldName').value = '';
@@ -731,7 +753,6 @@ var StiffEyesToolsPanel = (function () {
       $('cookieFieldSameSite').value = 'unspecified';
       $('cookieFieldSecure').checked = false;
       $('cookieFieldHttpOnly').checked = false;
-      // 预填当前 domain
       getCurrentTabUrl(function (url) {
         if (url) $('cookieFieldDomain').value = '.' + extractHost(url);
       });
@@ -777,14 +798,14 @@ var StiffEyesToolsPanel = (function () {
 
     // 如果是编辑模式且名称或域名变了，先删旧
     if (cookieEditTarget) {
-      var oldName = cookieEditTarget.dataset.name;
-      var oldDomain = cookieEditTarget.dataset.domain;
-      var oldPath = cookieEditTarget.dataset.path;
-      var oldSecure = cookieEditTarget.dataset.secure === 'true';
-      var oldUrl = (oldSecure ? 'https://' : 'http://') + oldDomain.replace(/^\./, '') + oldPath;
-      if (oldName !== name || oldDomain !== domain) {
-        chrome.cookies.remove({ url: oldUrl, name: oldName }, function () {
-          chrome.cookies.set(cookieProps, function () {
+      var oldData = parseCookieData(cookieEditTarget);
+      if (oldData && (oldData.name !== name || oldData.domain !== domain)) {
+        var oldUrl = (oldData.secure ? 'https://' : 'http://') + oldData.domain.replace(/^\./, '') + oldData.path;
+        chrome.cookies.remove({ url: oldUrl, name: oldData.name }, function () {
+          chrome.cookies.set(cookieProps, function (result) {
+            if (chrome.runtime.lastError) {
+              console.warn('cookie set failed:', chrome.runtime.lastError.message);
+            }
             closeCookieForm();
             refreshCookieList();
           });
@@ -794,18 +815,22 @@ var StiffEyesToolsPanel = (function () {
     }
 
     chrome.cookies.set(cookieProps, function (result) {
+      if (chrome.runtime.lastError) {
+        console.warn('cookie set failed:', chrome.runtime.lastError.message);
+      }
       if (result) {
         closeCookieForm();
         refreshCookieList();
       } else {
-        // 设置失败，可能是 secure 不匹配
-        if (cookieProps.secure) {
-          cookieProps.url = 'https://' + domain.replace(/^\./, '') + path;
-          chrome.cookies.set(cookieProps, function (r2) {
-            closeCookieForm();
-            refreshCookieList();
-          });
-        }
+        // 尝试另一种协议
+        cookieProps.url = (secure ? 'http://' : 'https://') + domain.replace(/^\./, '') + path;
+        chrome.cookies.set(cookieProps, function () {
+          if (chrome.runtime.lastError) {
+            console.warn('cookie set retry failed:', chrome.runtime.lastError.message);
+          }
+          closeCookieForm();
+          refreshCookieList();
+        });
       }
     });
   }
@@ -1107,6 +1132,102 @@ var StiffEyesToolsPanel = (function () {
     });
   }
 
+  // ==================== 批量网址 ====================
+
+  function initBatchUrlsPanel() {
+    loadBatchUrlInput();
+    switchBatchTab('batchOpen');
+    loadCurrentWindowUrls();
+  }
+
+  function switchBatchTab(panelId) {
+    var tabs = document.querySelectorAll('.tools-batch-tab');
+    tabs.forEach(function (t) { t.classList.toggle('active', t.dataset.panel === panelId); });
+    $('batchOpenPanel').classList.toggle('hidden', panelId !== 'batchOpen');
+    $('batchSavePanel').classList.toggle('hidden', panelId !== 'batchSave');
+  }
+
+  function countBatchLines(text) {
+    return (text || '').split(/\r?\n/).map(function (l) { return l.trim(); }).filter(Boolean).length;
+  }
+
+  function updateBatchOpenCount() {
+    var text = $('batchUrlInput').value;
+    $('batchOpenCount').textContent = countBatchLines(text) + ' 个网址';
+  }
+
+  function loadBatchUrlInput() {
+    chrome.storage.local.get(['batch_url_text'], function (data) {
+      $('batchUrlInput').value = data.batch_url_text || '';
+      updateBatchOpenCount();
+    });
+  }
+
+  function saveBatchUrlInput() {
+    chrome.storage.local.set({ batch_url_text: $('batchUrlInput').value });
+    updateBatchOpenCount();
+  }
+
+  function openBatchUrls() {
+    var text = $('batchUrlInput').value;
+    var lines = text.split(/\r?\n/).map(function (l) { return l.trim(); }).filter(Boolean);
+    // 去重
+    var urls = [];
+    var seen = {};
+    lines.forEach(function (line) {
+      if (!seen[line]) { seen[line] = true; urls.push(line); }
+    });
+    if (!urls.length) return;
+
+    // 逐个打开标签页
+    var count = 0;
+    urls.forEach(function (url) {
+      chrome.tabs.create({ url: url, active: false }, function () {
+        count++;
+        if (count >= urls.length && urls.length > 1 && chrome.tabs.group) {
+          chrome.tabs.query({ currentWindow: true }, function (tabs) {
+            var recentIds = tabs.slice(-urls.length).map(function (t) { return t.id; }).filter(Boolean);
+            if (recentIds.length > 1) {
+              chrome.tabs.group({ tabIds: recentIds }, function (groupId) {
+                chrome.tabGroups.update(groupId, { title: '批量打开 (' + urls.length + ')', color: 'red', collapsed: false });
+              });
+            }
+          });
+        }
+      });
+    });
+  }
+
+  function loadCurrentWindowUrls() {
+    chrome.tabs.query({ currentWindow: true }, function (tabs) {
+      var urls = tabs.map(function (t) { return t.url; }).filter(function (url) { return url && url.length > 0; });
+      $('batchUrlOutput').value = urls.join('\n');
+      updateBatchSaveCount();
+    });
+  }
+
+  function updateBatchSaveCount() {
+    $('batchSaveCount').textContent = countBatchLines($('batchUrlOutput').value) + ' 个网址';
+  }
+
+  function copyBatchUrls() {
+    var text = $('batchUrlOutput').value;
+    navigator.clipboard.writeText(text).then(function () {
+      // 视觉反馈
+    }).catch(function () {});
+  }
+
+  function exportBatchUrls() {
+    var text = $('batchUrlOutput').value;
+    var blob = new Blob([text], { type: 'text/plain' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'tabs-urls.txt';
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   // ==================== 事件 ====================
 
   function wireEvents() {
@@ -1211,6 +1332,37 @@ var StiffEyesToolsPanel = (function () {
     // ── 编码切换事件 ──
     var resetCharsetBtn = $('charsetBtnReset');
     if (resetCharsetBtn) resetCharsetBtn.addEventListener('click', resetCharset);
+
+    // ── 批量网址事件 ──
+    var batchTabs = document.querySelectorAll('.tools-batch-tab');
+    batchTabs.forEach(function (tab) {
+      tab.addEventListener('click', function () {
+        switchBatchTab(tab.dataset.panel);
+        if (tab.dataset.panel === 'batchSave') loadCurrentWindowUrls();
+      });
+    });
+
+    var batchInput = $('batchUrlInput');
+    if (batchInput) {
+      batchInput.addEventListener('input', function () { saveBatchUrlInput(); });
+    }
+
+    var batchBtnClear = $('batchBtnClear');
+    if (batchBtnClear) {
+      batchBtnClear.addEventListener('click', function () {
+        $('batchUrlInput').value = '';
+        saveBatchUrlInput();
+      });
+    }
+
+    var batchBtnOpen = $('batchBtnOpen');
+    if (batchBtnOpen) batchBtnOpen.addEventListener('click', openBatchUrls);
+
+    var batchBtnCopy = $('batchBtnCopy');
+    if (batchBtnCopy) batchBtnCopy.addEventListener('click', copyBatchUrls);
+
+    var batchBtnExport = $('batchBtnExport');
+    if (batchBtnExport) batchBtnExport.addEventListener('click', exportBatchUrls);
   }
 
   function init() {

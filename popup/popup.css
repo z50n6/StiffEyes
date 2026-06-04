@@ -3397,4 +3397,82 @@ textarea:focus {
 }
 .tools-charset-row.active .tools-charset-row-check { opacity: 1; }
 
+/* ── 批量网址面板 ── */
+.tools-batch-tabs {
+  display: flex;
+  gap: 0;
+  flex-shrink: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.tools-batch-tab {
+  flex: 1;
+  padding: 6px 0;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: var(--font);
+  border: none;
+  background: var(--bg-muted);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.12s;
+}
+.tools-batch-tab.active {
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+}
+.tools-batch-tab:hover:not(.active) { color: var(--text); }
+
+.tools-batch-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 0;
+}
+.tools-batch-panel.hidden { display: none; }
+
+.tools-batch-textarea {
+  flex: 1;
+  min-height: 120px;
+  padding: 8px 10px;
+  font-size: 10.5px;
+  font-family: var(--mono);
+  line-height: 1.5;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-surface);
+  color: var(--text);
+  resize: none;
+  scrollbar-width: thin;
+  scrollbar-color: #3f3f46 transparent;
+}
+.tools-batch-textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--glow);
+}
+.tools-batch-textarea::placeholder {
+  color: var(--text-faint);
+  font-family: var(--font);
+}
+
+.tools-batch-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.tools-batch-count {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  flex: 1;
+}
+
 /* —— 全局 textarea 覆盖：JWT 面板不受外层 margin 影响 —— */
