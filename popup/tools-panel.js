@@ -924,8 +924,7 @@ var StiffEyesToolsPanel = (function () {
   ];
 
   var currentCharset = '';
-  var charsetTabId = null;
-  var charsetCurrentUrl = '';
+  var charsetRuleIds = [];
 
   function initCharsetPanel() {
     getCurrentTabUrl(function (url) {
@@ -933,33 +932,43 @@ var StiffEyesToolsPanel = (function () {
         $('charsetCurrent').textContent = '无法获取页面';
         return;
       }
-      charsetCurrentUrl = url;
       detectCurrentEncoding();
-      renderCharsetList();
     });
   }
 
   function detectCurrentEncoding() {
     $('charsetCurrent').textContent = '检测中…';
+    $('charsetCurrent').title = '';
     chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
-      if (!tabs[0]?.id) return;
-      charsetTabId = tabs[0].id;
-      try {
-        chrome.scripting.executeScript({
-          target: { tabId: charsetTabId },
-          func: function () { return document.characterSet || document.charset || ''; }
-        }, function (results) {
-          if (results && results[0] && results[0].result) {
-            currentCharset = results[0].result;
-            $('charsetCurrent').textContent = currentCharset;
-          } else {
-            $('charsetCurrent').textContent = '未知';
-          }
-          renderCharsetList();
-        });
-      } catch (e) {
-        $('charsetCurrent').textContent = '无法检测';
+      var tab = tabs[0];
+      if (!tab?.id) {
+        $('charsetCurrent').textContent = '无法获取标签页';
+        return;
       }
+      // 检查是否为受限页面
+      if (tab.url && (tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://') || tab.url.startsWith('about:'))) {
+        $('charsetCurrent').textContent = '受限页面';
+        $('charsetCurrent').title = 'chrome:// / about: 等内部页面无法检测和修改编码';
+        renderCharsetList();
+        return;
+      }
+      chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        func: function () { return document.characterSet || document.charset || ''; }
+      }, function (results) {
+        if (chrome.runtime.lastError) {
+          $('charsetCurrent').textContent = '无法访问';
+          $('charsetCurrent').title = chrome.runtime.lastError.message;
+        } else if (results && results[0] && results[0].result) {
+          currentCharset = results[0].result;
+          $('charsetCurrent').textContent = currentCharset;
+          $('charsetCurrent').title = '';
+        } else {
+          $('charsetCurrent').textContent = '未知';
+          $('charsetCurrent').title = '页面未声明字符编码';
+        }
+        renderCharsetList();
+      });
     });
   }
 
@@ -995,94 +1004,96 @@ var StiffEyesToolsPanel = (function () {
     });
   }
 
-  var charsetRuleIds = [];
-
-  function getCharsetContentType(encoding) {
-    // 获取当前页面的 Content-Type，修改 charset
-    return new Promise(function (resolve) {
-      chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
-        if (!tabs[0]?.id) { resolve('text/html'); return; }
-        chrome.scripting.executeScript({
-          target: { tabId: tabs[0].id },
-          func: function () { return document.contentType || 'text/html'; }
-        }, function (results) {
-          resolve((results && results[0] && results[0].result) || 'text/html');
-        });
-      });
-    });
-  }
-
   function applyCharset(encoding, name) {
-    if (!charsetTabId || !charsetCurrentUrl) return;
+    // 视觉反馈：显示正在应用
+    var statusEl = $('charsetCurrent');
+    var prevText = statusEl.textContent;
+    statusEl.textContent = '应用 ' + name + '…';
 
-    // 先移除旧规则
-    var removeIds = charsetRuleIds.slice();
-    charsetRuleIds = [];
+    chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+      var tab = tabs[0];
+      if (!tab?.id) { statusEl.textContent = prevText; return; }
+      var tabId = tab.id;
 
-    Promise.resolve().then(function () {
-      return getCharsetContentType(encoding);
-    }).then(function (contentType) {
-      // 获取当前 session 规则以生成不冲突的 ID
-      return new Promise(function (resolve) {
-        chrome.declarativeNetRequest.getSessionRules(function (existingRules) {
-          var maxId = 0;
-          (existingRules || []).forEach(function (r) { if (r.id > maxId) maxId = r.id; });
-          var baseId = maxId + 1;
-          charsetRuleIds = [baseId, baseId + 1, baseId + 2, baseId + 3];
+      // 一步检测 Content-Type 并用简单 ID 生成规则
+      chrome.scripting.executeScript({
+        target: { tabId: tabId },
+        func: function () { return document.contentType || 'text/html'; }
+      }, function (results) {
+        var ct = 'text/html';
+        if (!chrome.runtime.lastError && results && results[0] && results[0].result) {
+          ct = results[0].result;
+        }
 
-          var rules = [
-            { contentType: contentType,               resourceTypes: ['main_frame'] },
-            { contentType: 'text/html',               resourceTypes: ['sub_frame'] },
-            { contentType: 'application/javascript',  resourceTypes: ['script'] },
-            { contentType: 'text/css',                resourceTypes: ['stylesheet'] }
-          ].map(function (def, idx) {
-            return {
-              id: baseId + idx,
-              priority: 10,
-              action: {
-                type: 'modifyHeaders',
-                responseHeaders: [{
-                  header: 'content-type',
-                  operation: 'set',
-                  value: def.contentType + '; charset=' + encoding
-                }]
-              },
-              condition: {
-                tabIds: [charsetTabId],
-                resourceTypes: [def.resourceTypes]
-              }
-            };
-          });
+        // 简单规则 ID：基于时间戳避免冲突
+        var baseId = Date.now() % 1000000;
+        while (baseId < 100) baseId += 1;
+        var removeIds = charsetRuleIds.slice();
+        charsetRuleIds = [baseId, baseId + 1, baseId + 2, baseId + 3];
 
-          chrome.declarativeNetRequest.updateSessionRules({
-            removeRuleIds: removeIds,
-            addRules: rules
-          }, function () {
+        var ruleDefs = [
+          { ct: ct,                        rt: 'main_frame' },
+          { ct: 'text/html',               rt: 'sub_frame' },
+          { ct: 'application/javascript',  rt: 'script' },
+          { ct: 'text/css',                rt: 'stylesheet' }
+        ];
+
+        var addRules = ruleDefs.map(function (def, idx) {
+          return {
+            id: baseId + idx,
+            priority: 10,
+            action: {
+              type: 'modifyHeaders',
+              responseHeaders: [{
+                header: 'content-type',
+                operation: 'set',
+                value: def.ct + '; charset=' + encoding
+              }]
+            },
+            condition: { tabIds: [tabId], resourceTypes: [def.rt] }
+          };
+        });
+
+        chrome.declarativeNetRequest.updateSessionRules(
+          { removeRuleIds: removeIds, addRules: addRules },
+          function () {
+            if (chrome.runtime.lastError) {
+              console.error('charset apply failed:', chrome.runtime.lastError.message);
+              charsetRuleIds = removeIds;
+              statusEl.textContent = prevText;
+              return;
+            }
             currentCharset = encoding;
             trackRecentCharset(encoding);
-            $('charsetCurrent').textContent = encoding;
             renderCharsetList();
-            // 跳过缓存刷新以确保重新请求
-            chrome.tabs.reload(charsetTabId, { bypassCache: true });
-          });
-        });
+            chrome.tabs.reload(tabId, { bypassCache: true });
+          }
+        );
       });
     });
   }
 
   function resetCharset() {
-    var removeIds = charsetRuleIds.slice();
-    charsetRuleIds = [];
-    chrome.declarativeNetRequest.updateSessionRules({
-      removeRuleIds: removeIds
-    }, function () {
-      currentCharset = '';
-      $('charsetCurrent').textContent = '已还原';
-      if (charsetTabId) {
-        chrome.tabs.reload(charsetTabId, { bypassCache: true });
-      }
-      renderCharsetList();
-      setTimeout(function () { detectCurrentEncoding(); }, 1500);
+    chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+      var tabId = tabs[0]?.id;
+      var removeIds = charsetRuleIds.slice();
+      charsetRuleIds = [];
+      chrome.declarativeNetRequest.updateSessionRules({
+        removeRuleIds: removeIds
+      }, function () {
+        if (chrome.runtime.lastError) {
+          console.warn('resetCharset updateSessionRules failed:', chrome.runtime.lastError.message);
+          charsetRuleIds = removeIds;
+          return;
+        }
+        currentCharset = '';
+        $('charsetCurrent').textContent = '已还原';
+        if (tabId) {
+          chrome.tabs.reload(tabId, { bypassCache: true });
+        }
+        renderCharsetList();
+        setTimeout(function () { detectCurrentEncoding(); }, 1500);
+      });
     });
   }
 
