@@ -162,13 +162,16 @@ function buildScanUi() {
     btn.type = 'button';
     btn.className = 'subtab active';
     btn.dataset.sub = 'jsleak';
-    btn.innerHTML = '<span class="subtab-label">🩸 JS泄露</span><span class="count" id="jsleakSideCount" style="display:none">!</span>';
+    btn.innerHTML = '<span class="subtab-label">🔓 JS泄露</span><span class="count" id="jsleakSideCount" style="display:none">!</span>';
     btn.addEventListener('click', function () {
       document.querySelectorAll('#scanSubtabs .subtab').forEach(function (b) { b.classList.remove('active'); });
       document.querySelectorAll('#scanPanels .list-wrap').forEach(function (w) { w.classList.add('hidden'); });
       btn.classList.add('active');
       activeScanTabId = 'jsleak';
       $('panel-jsleak').classList.remove('hidden');
+      if (window.StiffEyesToolsPanel && window.StiffEyesToolsPanel.loadFindings) {
+        window.StiffEyesToolsPanel.loadFindings();
+      }
     });
     subtabsEl.appendChild(btn);
 
@@ -178,7 +181,7 @@ function buildScanUi() {
 
     var head = document.createElement('div');
     head.className = 'panel-head';
-    head.innerHTML = '<h3 class="panel-title">🩸 JS 泄露扫描</h3><span class="panel-meta" id="jsleakPanelMeta">点击按钮开始扫描</span>';
+    head.innerHTML = '<h3 class="panel-title">🔓 JS 泄露扫描</h3><span class="panel-meta" id="jsleakPanelMeta">点击按钮开始扫描</span>';
     wrap.appendChild(head);
 
     var toolbar = document.createElement('div');
