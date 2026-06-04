@@ -529,18 +529,16 @@ var StiffEyesToolsPanel = (function () {
     var clearDataPanel = $('toolsPanelClearData');
     var charsetPanel = $('toolsPanelCharset');
     var batchPanel = $('toolsPanelBatchUrls');
-    var jsleakPanel = $('toolsPanelJsleak');
     if (uaPanel) uaPanel.classList.add('hidden');
     if (cookiePanel) cookiePanel.classList.add('hidden');
     if (clearDataPanel) clearDataPanel.classList.add('hidden');
     if (charsetPanel) charsetPanel.classList.add('hidden');
     if (batchPanel) batchPanel.classList.add('hidden');
-    if (jsleakPanel) jsleakPanel.classList.add('hidden');
     if ($('toolsStatusBar')) $('toolsStatusBar').classList.add('hidden');
   }
 
   function hideAllToolPanels() {
-    ['toolsPanelUa', 'toolsPanelCookie', 'toolsPanelClearData', 'toolsPanelCharset', 'toolsPanelBatchUrls', 'toolsPanelJsleak'].forEach(function (id) {
+    ['toolsPanelUa', 'toolsPanelCookie', 'toolsPanelClearData', 'toolsPanelCharset', 'toolsPanelBatchUrls'].forEach(function (id) {
       var p = $(id); if (p) p.classList.add('hidden');
     });
     if ($('toolsStatusBar')) $('toolsStatusBar').classList.add('hidden');
@@ -585,10 +583,6 @@ var StiffEyesToolsPanel = (function () {
       initBatchUrlsPanel();
     }
 
-    if (toolId === 'jsleak') {
-      var jsleakPanel = $('toolsPanelJsleak');
-      if (jsleakPanel) jsleakPanel.classList.remove('hidden');
-    }
   }
 
   // ==================== Cookie 管理器 ====================
@@ -1389,16 +1383,16 @@ var StiffEyesToolsPanel = (function () {
   }
 
   function scanJsleak() {
-    var btn = $('jsleakBtnScan');
+    var btn = $('jsleakQuickBtn') || $('jsleakBtnScan');
     var listEl = $('jsleakList');
-    btn.disabled = true; btn.textContent = '扫描中…';
-    $('jsleakSummary').textContent = '';
-    listEl.innerHTML = '<div class="tools-empty">扫描中…</div>';
+    if (btn) { btn.disabled = true; btn.textContent = '检测中…'; }
+    var summary = $('jsleakSummary'); if (summary) summary.textContent = '';
+    if (listEl) listEl.innerHTML = '<div class="tools-empty">扫描中…</div>';
 
     chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
       if (!tabs[0]?.id) {
-        listEl.innerHTML = '<div class="tools-empty">无法获取页面</div>';
-        btn.disabled = false; btn.textContent = '🔍 快速扫描';
+        if (listEl) listEl.innerHTML = '<div class="tools-empty">无法获取页面</div>';
+        if (btn) { btn.disabled = false; btn.textContent = '🧪 页面检测'; }
         return;
       }
       chrome.scripting.executeScript({
@@ -1411,21 +1405,21 @@ var StiffEyesToolsPanel = (function () {
       }, function (results) {
         var content = (results && results[0] && results[0].result) || '';
         renderFindings(collectFindings(content));
-        btn.disabled = false; btn.textContent = '🔍 快速扫描';
+        if (btn) { btn.disabled = false; btn.textContent = '🧪 页面检测'; }
       });
     });
   }
 
   function deepScanJsleak() {
-    var btn = $('jsleakBtnDeep');
+    var btn = $('jsleakDeepBtn') || $('jsleakBtnDeep');
     var listEl = $('jsleakList');
-    btn.disabled = true; btn.textContent = '深层扫描中…';
-    $('jsleakSummary').textContent = '';
+    if (btn) { btn.disabled = true; btn.textContent = '深层扫描中…'; }
+    var summary = $('jsleakSummary'); if (summary) summary.textContent = '';
 
     chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
       if (!tabs[0]?.id) {
-        listEl.innerHTML = '<div class="tools-empty">无法获取页面</div>';
-        btn.disabled = false; btn.textContent = '🔬 深层 JS 扫描';
+        if (listEl) listEl.innerHTML = '<div class="tools-empty">无法获取页面</div>';
+        if (btn) { btn.disabled = false; btn.textContent = '🔬 深层检测'; }
         return;
       }
       chrome.scripting.executeScript({
@@ -1453,7 +1447,7 @@ var StiffEyesToolsPanel = (function () {
 
           if (!pending) {
             renderFindings(allFindings);
-            btn.disabled = false; btn.textContent = '🔬 深层 JS 扫描';
+            if (btn) { btn.disabled = false; btn.textContent = '🔬 深层检测'; }
             return;
           }
 
@@ -1478,7 +1472,7 @@ var StiffEyesToolsPanel = (function () {
                 var finalFindings = Object.values(merged);
                 finalFindings.forEach(function (f) { f.values = f.values.slice(0, 10); });
                 renderFindings(finalFindings);
-                btn.disabled = false; btn.textContent = '🔬 深层 JS 扫描';
+                if (btn) { btn.disabled = false; btn.textContent = '🔬 深层检测'; }
               }
             });
           });
@@ -1658,5 +1652,5 @@ var StiffEyesToolsPanel = (function () {
     restoreState();
   }
 
-  return { init: init, showDropdown: showDropdown };
+  return { init: init, showDropdown: showDropdown, scanJsleak: scanJsleak, deepScanJsleak: deepScanJsleak };
 })();

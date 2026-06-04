@@ -156,10 +156,55 @@ function buildScanUi() {
   var panelsEl = $('scanPanels');
   if (!subtabsEl || !panelsEl) return;
 
+  // ── JS 泄露扫描（第一个特殊 tab）──
+  (function () {
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'subtab active';
+    btn.dataset.sub = 'jsleak';
+    btn.innerHTML = '<span class="subtab-label">🩸 JS泄露</span><span class="count" id="jsleakSideCount" style="display:none">!</span>';
+    btn.addEventListener('click', function () {
+      document.querySelectorAll('#scanSubtabs .subtab').forEach(function (b) { b.classList.remove('active'); });
+      document.querySelectorAll('#scanPanels .list-wrap').forEach(function (w) { w.classList.add('hidden'); });
+      btn.classList.add('active');
+      activeScanTabId = 'jsleak';
+      $('panel-jsleak').classList.remove('hidden');
+    });
+    subtabsEl.appendChild(btn);
+
+    var wrap = document.createElement('div');
+    wrap.className = 'list-wrap';
+    wrap.id = 'panel-jsleak';
+
+    var head = document.createElement('div');
+    head.className = 'panel-head';
+    head.innerHTML = '<h3 class="panel-title">🩸 JS 泄露扫描</h3><span class="panel-meta" id="jsleakPanelMeta">点击按钮开始扫描</span>';
+    wrap.appendChild(head);
+
+    var toolbar = document.createElement('div');
+    toolbar.className = 'toolbar';
+    toolbar.style.cssText = 'display:flex;gap:6px;padding:6px 0;';
+    toolbar.innerHTML =
+      '<button type="button" class="btn btn-accent btn-sm" id="jsleakQuickBtn">🧪 页面检测</button>' +
+      '<button type="button" class="btn btn-sm" id="jsleakDeepBtn">🔬 深层检测</button>' +
+      '<span class="tools-jsleak-summary" id="jsleakSummary" style="font-size:10px;color:var(--text-faint);margin-left:8px;"></span>';
+    wrap.appendChild(toolbar);
+
+    var results = document.createElement('div');
+    results.className = 'tools-jsleak-list';
+    results.id = 'jsleakList';
+    results.style.cssText = 'flex:1;min-height:200px;overflow-y:auto;';
+    results.innerHTML = '<div class="tools-empty">点击「页面检测」扫描当前页面，或「深层检测」拉取外部 JS 分析</div>';
+    wrap.appendChild(results);
+
+    panelsEl.appendChild(wrap);
+  })();
+
+  // ── 原有扫描 Tab（从 index 0 开始，active 改为第二个）──
   SCAN_TABS.forEach(function (tab, index) {
     var btn = document.createElement('button');
     btn.type = 'button';
-    btn.className = 'subtab' + (index === 0 ? ' active' : '');
+    btn.className = 'subtab';
     btn.dataset.sub = tab.id;
     btn.innerHTML =
       '<span class="subtab-label">' +
@@ -168,12 +213,8 @@ function buildScanUi() {
       tab.id +
       '">0</span>';
     btn.addEventListener('click', function () {
-      document.querySelectorAll('#scanSubtabs .subtab').forEach(function (b) {
-        b.classList.remove('active');
-      });
-      document.querySelectorAll('#scanPanels .list-wrap').forEach(function (w) {
-        w.classList.add('hidden');
-      });
+      document.querySelectorAll('#scanSubtabs .subtab').forEach(function (b) { b.classList.remove('active'); });
+      document.querySelectorAll('#scanPanels .list-wrap').forEach(function (w) { w.classList.add('hidden'); });
       btn.classList.add('active');
       activeScanTabId = tab.id;
       $(`panel-${tab.id}`).classList.remove('hidden');
@@ -181,7 +222,7 @@ function buildScanUi() {
     subtabsEl.appendChild(btn);
 
     var wrap = document.createElement('div');
-    wrap.className = 'list-wrap' + (index === 0 ? '' : ' hidden');
+    wrap.className = 'list-wrap hidden';
     wrap.id = `panel-${tab.id}`;
 
     var head = document.createElement('div');
@@ -1171,6 +1212,16 @@ async function init() {
 
   // Auto-trigger sniff on popup open
   openSniff();
+
+  // JS 泄露扫描按钮
+  var jsleakQuick = $('jsleakQuickBtn');
+  var jsleakDeep = $('jsleakDeepBtn');
+  if (jsleakQuick && window.StiffEyesToolsPanel) {
+    jsleakQuick.addEventListener('click', function () { window.StiffEyesToolsPanel.scanJsleak(); });
+  }
+  if (jsleakDeep && window.StiffEyesToolsPanel) {
+    jsleakDeep.addEventListener('click', function () { window.StiffEyesToolsPanel.deepScanJsleak(); });
+  }
 }
 
 document.querySelectorAll('#mainTabs .tab').forEach((btn) => {
