@@ -1,9 +1,12 @@
-# 绷着脸 · StiffEyes
-
-**不苟言笑，认真看站**
-
-Chrome 扩展 — 页面资产梳理 · 技术指纹识别 · Spring 端点探测 · Webpack 映射 · 云存储检测 · JWT 测试 · Payload 字典 · 工具箱  
-**仅限授权安全测试与开发自检**
+<p align="center">
+  <img src="icons/icon128.png" width="80" height="80" alt="StiffEyes" />
+</p>
+<h1 align="center">绷着脸 · StiffEyes</h1>
+<p align="center"><strong>不苟言笑，认真看站</strong></p>
+<p align="center">
+  Chrome 扩展 — 页面资产梳理 · 技术指纹识别 · Spring 端点探测 · Webpack 映射 · 云存储检测 · JWT 测试 · Payload 字典 · 工具箱<br/>
+  <strong>⚠️ 使用声明：本工具仅供已获合法授权的安全测试、渗透测试与开发自检使用。<br/>使用者须确保在拥有明确书面授权的系统上操作，任何未经授权的测试行为均与本项目无关，后果由使用者自行承担。</strong>
+</p>
 
 ---
 
