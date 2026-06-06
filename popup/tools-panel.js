@@ -905,9 +905,15 @@ var StiffEyesToolsPanel = (function () {
     var btn = $('clearDataBtn');
 
     // 收集选中的数据类型
+    var checks = document.querySelectorAll('#clearDataTypes input[type="checkbox"]:not(#clearDataSelectAll)');
     var dataTypes = {};
-    var checks = document.querySelectorAll('#clearDataTypes input[type="checkbox"]:checked');
-    checks.forEach(function (cb) { dataTypes[cb.value] = true; });
+    // Chrome browsingData.remove 有效类型过滤
+    var validTypes = ['appcache', 'cache', 'cookies', 'downloads', 'formData', 'history', 'indexedDB', 'localStorage', 'passwords', 'serviceWorkers', 'webSQL'];
+    var cleanedTypes = {};
+    checks.forEach(function (cb) {
+      if (validTypes.indexOf(cb.value) !== -1) cleanedTypes[cb.value] = true;
+    });
+    dataTypes = cleanedTypes;
 
     if (!Object.keys(dataTypes).length) {
       statusEl.className = 'tools-cleardata-status error';
@@ -926,21 +932,59 @@ var StiffEyesToolsPanel = (function () {
 
     var options = since ? { since: new Date().getTime() - since } : { since: 0 };
 
+    // origins 参数仅 Chrome 74+ 支持，且只适用于部分数据类型
+    var originSupportedTypes = ['cache', 'cookies', 'indexedDB', 'localStorage', 'serviceWorkers', 'webSQL', 'appcache'];
+
     function doClear(origins) {
-      if (origins) options.origins = origins;
-      chrome.browsingData.remove(options, dataTypes, function () {
-        if (chrome.runtime.lastError) {
+      var typesToClear = dataTypes;
+      var desc = '全局';
+
+      if (origins) {
+        // 过滤掉不支持 origins 的数据类型，避免 API 静默失败
+        var scopedTypes = {};
+        var skipped = [];
+        Object.keys(dataTypes).forEach(function (type) {
+          if (originSupportedTypes.indexOf(type) !== -1) {
+            scopedTypes[type] = true;
+          } else {
+            skipped.push(type);
+          }
+        });
+
+        if (!Object.keys(scopedTypes).length) {
           statusEl.className = 'tools-cleardata-status error';
-          statusEl.textContent = '清除失败: ' + chrome.runtime.lastError.message;
+          statusEl.textContent = '所选数据类型不支持按站点清除，请切换到"全部浏览器"';
           statusEl.classList.remove('hidden');
           btn.disabled = false;
           btn.textContent = '🧹 立即清除';
-        } else {
-          var desc = origins ? '当前站点' : '全局';
+          return;
+        }
+
+        typesToClear = scopedTypes;
+        desc = '当前站点';
+        options.origins = origins;
+
+        if (skipped.length) {
+          console.warn('不支持按站点清除的数据类型已跳过:', skipped.join(', '));
+        }
+      }
+
+      // 超时保护：若 API 回调 5 秒内未触发，自动恢复按钮
+      var timeoutId = setTimeout(function () {
+        statusEl.className = 'tools-cleardata-status error';
+        statusEl.textContent = '清除请求超时，请重试或切换为"全部浏览器"模式';
+        statusEl.classList.remove('hidden');
+        btn.disabled = false;
+        btn.textContent = '🧹 立即清除';
+      }, 5000);
+
+      function finish(success, msg) {
+        clearTimeout(timeoutId);
+        if (success) {
           var reloadCb = $('clearDataReload');
           if (reloadCb && reloadCb.checked) {
             chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
-              if (tabs[0]?.id) {
+              if (tabs[0] && tabs[0].id) {
                 chrome.tabs.reload(tabs[0].id, { bypassCache: true });
               }
             });
@@ -949,10 +993,26 @@ var StiffEyesToolsPanel = (function () {
           statusEl.textContent = '✓ 已成功清除（' + desc + '）';
           statusEl.classList.remove('hidden');
           setTimeout(function () { statusEl.classList.add('hidden'); }, 4000);
-          btn.disabled = false;
-          btn.textContent = '🧹 立即清除';
+        } else {
+          statusEl.className = 'tools-cleardata-status error';
+          statusEl.textContent = msg || '清除失败';
+          statusEl.classList.remove('hidden');
         }
-      });
+        btn.disabled = false;
+        btn.textContent = '🧹 立即清除';
+      }
+
+      try {
+        chrome.browsingData.remove(options, typesToClear, function () {
+          if (chrome.runtime.lastError) {
+            finish(false, '清除失败: ' + chrome.runtime.lastError.message);
+          } else {
+            finish(true);
+          }
+        });
+      } catch (e) {
+        finish(false, '清除失败: ' + e.message);
+      }
     }
 
     if (scope === 'site') {
@@ -965,7 +1025,17 @@ var StiffEyesToolsPanel = (function () {
           btn.textContent = '🧹 立即清除';
           return;
         }
-        var origin = new URL(url).origin;
+        var origin;
+        try {
+          origin = new URL(url).origin;
+        } catch (e) {
+          statusEl.className = 'tools-cleardata-status error';
+          statusEl.textContent = '当前 URL 格式异常';
+          statusEl.classList.remove('hidden');
+          btn.disabled = false;
+          btn.textContent = '🧹 立即清除';
+          return;
+        }
         doClear([origin]);
       });
     } else {
