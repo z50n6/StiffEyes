@@ -156,54 +156,7 @@ function buildScanUi() {
   var panelsEl = $('scanPanels');
   if (!subtabsEl || !panelsEl) return;
 
-  // ── JS 泄露扫描（第一个特殊 tab）──
-  (function () {
-    var btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'subtab active';
-    btn.dataset.sub = 'jsleak';
-    btn.innerHTML = '<span class="subtab-label">🔓 JS泄露</span><span class="count" id="jsleakSideCount" style="display:none">!</span>';
-    btn.addEventListener('click', function () {
-      document.querySelectorAll('#scanSubtabs .subtab').forEach(function (b) { b.classList.remove('active'); });
-      document.querySelectorAll('#scanPanels .list-wrap').forEach(function (w) { w.classList.add('hidden'); });
-      btn.classList.add('active');
-      activeScanTabId = 'jsleak';
-      $('panel-jsleak').classList.remove('hidden');
-      if (window.StiffEyesToolsPanel && window.StiffEyesToolsPanel.loadFindings) {
-        window.StiffEyesToolsPanel.loadFindings();
-      }
-    });
-    subtabsEl.appendChild(btn);
-
-    var wrap = document.createElement('div');
-    wrap.className = 'list-wrap';
-    wrap.id = 'panel-jsleak';
-
-    var head = document.createElement('div');
-    head.className = 'panel-head';
-    head.innerHTML = '<h3 class="panel-title">🔓 JS 泄露扫描</h3><span class="panel-meta" id="jsleakPanelMeta">点击按钮开始扫描</span>';
-    wrap.appendChild(head);
-
-    var toolbar = document.createElement('div');
-    toolbar.className = 'toolbar';
-    toolbar.style.cssText = 'display:flex;gap:6px;padding:6px 0;';
-    toolbar.innerHTML =
-      '<button type="button" class="btn btn-accent btn-sm" id="jsleakQuickBtn">🧪 页面检测</button>' +
-      '<button type="button" class="btn btn-sm" id="jsleakDeepBtn">🔬 深层检测</button>' +
-      '<span class="tools-jsleak-summary" id="jsleakSummary" style="font-size:10px;color:var(--text-faint);margin-left:8px;"></span>';
-    wrap.appendChild(toolbar);
-
-    var results = document.createElement('div');
-    results.className = 'tools-jsleak-list';
-    results.id = 'jsleakList';
-    results.style.cssText = 'flex:1;min-height:200px;overflow-y:auto;';
-    results.innerHTML = '<div class="tools-empty">点击「页面检测」扫描当前页面，或「深层检测」拉取外部 JS 分析</div>';
-    wrap.appendChild(results);
-
-    panelsEl.appendChild(wrap);
-  })();
-
-  // ── 原有扫描 Tab（从 index 0 开始，active 改为第二个）──
+  // ── 扫描 Tab ──
   SCAN_TABS.forEach(function (tab, index) {
     var btn = document.createElement('button');
     btn.type = 'button';
@@ -228,6 +181,56 @@ function buildScanUi() {
     wrap.className = 'list-wrap hidden';
     wrap.id = `panel-${tab.id}`;
 
+    // JS 泄露特殊面板
+    if (tab.kind === 'jsleak') {
+      var head = document.createElement('div');
+      head.className = 'panel-head';
+      head.innerHTML =
+        '<h3 class="panel-title">🔓 JS 泄露扫描</h3>' +
+        '<span class="panel-meta" id="jsleakPanelMeta">点击按钮开始扫描</span>';
+      wrap.appendChild(head);
+
+      var toolbar = document.createElement('div');
+      toolbar.className = 'toolbar';
+      toolbar.style.cssText = 'display:flex;gap:6px;padding:6px 0;';
+
+      var quickBtn = document.createElement('button');
+      quickBtn.type = 'button';
+      quickBtn.className = 'btn btn-accent btn-sm';
+      quickBtn.id = 'jsleakQuickBtn';
+      quickBtn.textContent = '🧪 页面检测';
+      quickBtn.addEventListener('click', function () { window.StiffEyesJsleakPanel && window.StiffEyesJsleakPanel.scanJsleak(); });
+
+      var deepBtn = document.createElement('button');
+      deepBtn.type = 'button';
+      deepBtn.className = 'btn btn-sm';
+      deepBtn.id = 'jsleakDeepBtn';
+      deepBtn.textContent = '🔬 深层检测';
+      deepBtn.addEventListener('click', function () { window.StiffEyesJsleakPanel && window.StiffEyesJsleakPanel.deepScanJsleak(); });
+
+      var summarySpan = document.createElement('span');
+      summarySpan.id = 'jsleakSummary';
+      summarySpan.className = 'tools-jsleak-summary';
+      summarySpan.style.cssText = 'font-size:10px;color:var(--text-faint);margin-left:8px;';
+
+      toolbar.appendChild(quickBtn);
+      toolbar.appendChild(deepBtn);
+      toolbar.appendChild(summarySpan);
+      wrap.appendChild(toolbar);
+
+      var listDiv = document.createElement('div');
+      listDiv.className = 'tools-jsleak-list';
+      listDiv.id = 'jsleakList';
+      listDiv.style.cssText = 'flex:1;min-height:200px;overflow-y:auto;';
+      listDiv.innerHTML = '<div class="tools-empty">点击「页面检测」扫描当前页面，或「深层检测」拉取外部 JS 分析</div>';
+      wrap.appendChild(listDiv);
+
+      panelsEl.appendChild(wrap);
+      // 初始化 JS 泄露面板（加载缓存结果）
+      if (window.StiffEyesJsleakPanel) window.StiffEyesJsleakPanel.init();
+      return;
+    }
+
     var head = document.createElement('div');
     head.className = 'panel-head';
     head.innerHTML =
@@ -239,8 +242,8 @@ function buildScanUi() {
     wrap.appendChild(head);
 
     if (tab.copy) {
-      var toolbar = document.createElement('div');
-      toolbar.className = 'toolbar';
+      var tb = document.createElement('div');
+      tb.className = 'toolbar';
       var copyBtn = document.createElement('button');
       copyBtn.type = 'button';
       copyBtn.className = 'btn btn-sm';
@@ -250,18 +253,16 @@ function buildScanUi() {
         var text = copyTabItems(currentScan, tab);
         if (text) navigator.clipboard.writeText(text);
       });
-      toolbar.appendChild(copyBtn);
+      tb.appendChild(copyBtn);
       if (tab.copyUrl) {
         var copyUrlBtn = document.createElement('button');
         copyUrlBtn.type = 'button';
         copyUrlBtn.className = 'btn btn-sm';
         copyUrlBtn.textContent = '复制 URL';
-        copyUrlBtn.addEventListener('click', function () {
-          copyTabUrls(tab);
-        });
-        toolbar.appendChild(copyUrlBtn);
+        copyUrlBtn.addEventListener('click', function () { copyTabUrls(tab); });
+        tb.appendChild(copyUrlBtn);
       }
-      wrap.appendChild(toolbar);
+      wrap.appendChild(tb);
     }
 
     var ul = document.createElement('ul');
@@ -271,6 +272,15 @@ function buildScanUi() {
     panelsEl.appendChild(wrap);
   });
 
+  // 激活第二个子标签（域名），跳过第一个 JS 泄露
+  var subtabs = subtabsEl.querySelectorAll('.subtab');
+  var panels = panelsEl.querySelectorAll('.list-wrap');
+  if (subtabs[1]) {
+    subtabs[1].classList.add('active');
+    activeScanTabId = subtabs[1].dataset.sub;
+  }
+  if (panels[1]) panels[1].classList.remove('hidden');
+
   scanUiBuilt = true;
 }
 
@@ -278,19 +288,11 @@ function updateScanStatus(data) {
   var el = $('scanStatus');
   var badge = $('headerProgressBadge');
   if (el) {
-    if (data && data.scanning) {
-      el.textContent = '扫描结果加载中…';
-      el.classList.remove('hidden');
-    } else {
-      el.classList.add('hidden');
-    }
+    el.classList.add('hidden');
   }
   // 更新 header 进度徽章
   if (badge) {
-    if (data && data.scanning) {
-      badge.textContent = '扫描中…';
-      badge.classList.remove('hidden');
-    } else if (data && data.counts && data.counts.total > 0) {
+    if (data && data.counts && data.counts.total > 0) {
       badge.textContent = data.counts.total + ' 条';
       badge.classList.remove('hidden');
     } else {
@@ -311,8 +313,8 @@ function renderScan(data) {
 
   if (!currentScan) {
     SCAN_TABS.forEach(function (tab) {
-      renderList($(`list-${tab.id}`), [], '页面加载后自动扫描，请稍候');
-      var badge = document.querySelector(`[data-count-for="${tab.id}"]`);
+      renderList($('list-' + tab.id), [], '页面加载后自动扫描，请稍候');
+      var badge = document.querySelector('[data-count-for="' + tab.id + '"]');
       if (badge) badge.textContent = '0';
     });
     return;
@@ -320,8 +322,8 @@ function renderScan(data) {
 
   if (currentScan.blacklisted) {
     SCAN_TABS.forEach(function (tab) {
-      renderList($(`list-${tab.id}`), [], '当前域名在黑名单中，已跳过采集');
-      var badge = document.querySelector(`[data-count-for="${tab.id}"]`);
+      renderList($('list-' + tab.id), [], '当前域名在黑名单中，已跳过采集');
+      var badge = document.querySelector('[data-count-for="' + tab.id + '"]');
       if (badge) badge.textContent = '0';
     });
     return;
@@ -329,43 +331,104 @@ function renderScan(data) {
 
   SCAN_TABS.forEach(function (tab) {
     var items = collectTabItems(currentScan, tab);
-    var emptyText = currentScan.scanning
-      ? '扫描中，请稍候…'
-      : tab.emptyText || '暂无数据';
-    renderList($(`list-${tab.id}`), items, emptyText);
-    var badge = document.querySelector(`[data-count-for="${tab.id}"]`);
+    var emptyText = tab.emptyText || '暂无数据';
+    renderList($('list-' + tab.id), items, emptyText);
+    var badge = document.querySelector('[data-count-for="' + tab.id + '"]');
     if (badge) badge.textContent = String(items.length);
-    var meta = document.querySelector(`[data-meta-for="${tab.id}"]`);
+    var meta = document.querySelector('[data-meta-for="' + tab.id + '"]');
     if (meta) meta.textContent = items.length + ' 条';
   });
-
 }
 
 async function loadResults() {
   if (!currentTabId) return;
 
-  // 直接从 chrome.storage.session 读取（避免 background 中转延迟）
   var scanKey = 'bl_scan_' + currentTabId;
   var springKey = 'bl_springResults_' + currentTabId;
-  var data = {};
-  try {
-    data = await chrome.storage.session.get([scanKey, springKey]);
-  } catch (e) { /* storage 读取异常 */ }
+  var scan = null;
+  var springResults = '';
 
-  var scan = data[scanKey] || null;
+  var currentHost = '';
+  try { currentHost = new URL(currentTabUrl).hostname; } catch (e) {}
+
+  // ★ 主路径：直接从内容脚本读取内存数据（最快最可靠）
+  try {
+    var contentResult = await Promise.race([
+      new Promise(function (resolve) {
+        chrome.tabs.sendMessage(currentTabId, { type: 'GET_RESULTS', tabId: currentTabId, from: 'popup' }, function (resp) {
+          if (chrome.runtime.lastError) { resolve(null); return; }
+          resolve(resp || null);
+        });
+      }),
+      new Promise(function (r) { setTimeout(function () { r(null); }, 1500); })
+    ]);
+    if (contentResult) {
+      scan = contentResult;
+    }
+  } catch (e) { /* 内容脚本未响应 */ }
+
+  // ★ 备用：从 chrome.storage.local 读取持久化数据
+  if (!scan) {
+    try {
+      var localKeys = [scanKey];
+      if (currentHost) localKeys.push('bl_scan_host_' + currentHost);
+      var localData = await Promise.race([
+        chrome.storage.local.get(localKeys),
+        new Promise(function (r) { setTimeout(function () { r({}); }, 1000); })
+      ]);
+      for (var i = 0; i < localKeys.length; i++) {
+        if (localData[localKeys[i]]) { scan = localData[localKeys[i]]; break; }
+      }
+    } catch (e) {}
+  }
+
+  // ★ 最后：session storage
+  if (!scan) {
+    try {
+      var sessionData = await Promise.race([
+        chrome.storage.session.get([scanKey, springKey]),
+        new Promise(function (r) { setTimeout(function () { r({}); }, 1000); })
+      ]);
+      scan = sessionData[scanKey] || null;
+      springResults = sessionData[springKey] || '';
+    } catch (e) {}
+  }
+
   if (scan && StiffEyesPatterns.normalizeScanResult) {
     StiffEyesPatterns.normalizeScanResult(scan);
   }
+
+  if (!scan) {
+    triggerFallbackScan();
+  }
+
   renderScan(scan);
 
-  // Spring 状态由 chrome.storage.onChanged 监听推送，此处只加载结果
-  var springResults = data[springKey] || '';
   if (springResults) {
     renderSpringResults(springResults);
   } else {
     renderList($('listSpring'), [], '暂无扫描结果');
   }
   setSpringScanningUi(false);
+}
+
+/** 备用方案：当 storage.session 无缓存时，直接注入扫描器到页面中执行 */
+function triggerFallbackScan() {
+  if (!currentTabId) return;
+  // 先尝试消息触发（内容脚本可能已加载）
+  chrome.tabs.sendMessage(currentTabId, { type: 'TRIGGER_SCAN' }, function (resp) {
+    if (!chrome.runtime.lastError && resp && resp.success) return;
+    // 内容脚本未就绪，通过 scripting.executeScript 直接注入全部扫描引擎
+    chrome.scripting.executeScript({
+      target: { tabId: currentTabId },
+      files: [
+        'lib/logger.js',
+        'lib/scan-config.js',
+        'lib/scan-filter.js',
+        'lib/scan-engine.js'
+      ]
+    }).catch(function () {});
+  });
 }
 
 // ========== Cloud Bucket Panel ==========
@@ -853,15 +916,35 @@ function ensureCompiledStore() {
 function collectSniffPageSignals() {
   return new Promise(function (resolve) {
     var settled = false;
-    // 2 秒超时保护：content script 的 favicon 加载最长 3 秒，这里提前放弃
     var timeout = setTimeout(function () {
       if (!settled) { settled = true; resolve({}); }
     }, 2000);
+    // 先尝试内容脚本消息
     chrome.tabs.sendMessage(currentTabId, {
       type: 'COLLECT_SNIFF_PAGE_SIGNALS',
       selectors: []
     }, function (response) {
-      if (!settled) { settled = true; clearTimeout(timeout); resolve(response || {}); }
+      if (!settled && response && !chrome.runtime.lastError) {
+        settled = true; clearTimeout(timeout); resolve(response);
+        return;
+      }
+      // 内容脚本未就绪，通过 scripting.executeScript 直接注入采集器
+      if (settled) return;
+      chrome.scripting.executeScript({
+        target: { tabId: currentTabId },
+        files: ['content/sniff-collector.js']
+      }, function () {
+        if (settled) return;
+        // 等待注入完成后重试消息
+        setTimeout(function () {
+          chrome.tabs.sendMessage(currentTabId, {
+            type: 'COLLECT_SNIFF_PAGE_SIGNALS',
+            selectors: []
+          }, function (resp2) {
+            if (!settled) { settled = true; clearTimeout(timeout); resolve(resp2 || {}); }
+          });
+        }, 300);
+      });
     });
   });
 }
@@ -889,11 +972,15 @@ function collectSniffRuntimeSignals() {
 
 function collectSniffBackgroundData() {
   return new Promise(function (resolve) {
+    var settled = false;
+    var timeout = setTimeout(function () {
+      if (!settled) { settled = true; resolve({}); }
+    }, 3000);
     chrome.runtime.sendMessage({
       type: 'GET_SNIFF_DATA',
       tabId: currentTabId
     }, function (response) {
-      resolve(response || {});
+      if (!settled) { settled = true; clearTimeout(timeout); resolve(response || {}); }
     });
   });
 }
@@ -1063,8 +1150,36 @@ function exportSniffResults() {
   chrome.downloads.download({ url: url, filename: 'sniff-results.txt', saveAs: true });
 }
 
+/** 按需加载指纹相关脚本（共 3.5MB，避免阻塞 popup 启动） */
+var _sniffScriptsLoaded = false;
+function loadSniffScripts() {
+  if (_sniffScriptsLoaded) return Promise.resolve();
+  var files = [
+    'lib/fingerprint-core.js',
+    'lib/sniff-rules-core.js',
+    'lib/sniff-rules-webtech.js',
+    'lib/sniff-engine.js',
+    'lib/sniff-signals.js',
+    'lib/sniff-probes.js'
+  ];
+  return Promise.all(files.map(function (src) {
+    return new Promise(function (resolve, reject) {
+      var s = document.createElement('script');
+      s.src = '../' + src;
+      s.onload = resolve;
+      s.onerror = reject;
+      document.head.appendChild(s);
+    });
+  })).then(function () {
+    _sniffScriptsLoaded = true;
+  });
+}
+
 async function openSniff() {
   if (sniffState.running) return;
+
+  // 按需加载指纹脚本
+  await loadSniffScripts();
 
   // 优先从 sessionStorage 读取缓存（弹窗关闭后仍保留，同一站点无需重新识别）
   var key = 'ss_sniff_' + sniffCacheKey(currentTabId, currentTabUrl);
@@ -1114,15 +1229,18 @@ async function openSniff() {
 
     // 阶段3：将 DOM 检测委托给后台
     var domInput = StiffEyesSniffSignals.buildDomInput(page, runtime, bg);
-    var detectionResult = await new Promise(function (resolve) {
-      chrome.runtime.sendMessage({
-        type: 'SNIFF_RUN_DETECTION',
-        tabId: currentTabId,
-        domInput: domInput
-      }, function (resp) {
-        resolve(resp || { headerHits: headerHits, domHits: [], merged: headerHits });
-      });
-    });
+    var detectionResult = await Promise.race([
+      new Promise(function (resolve) {
+        chrome.runtime.sendMessage({
+          type: 'SNIFF_RUN_DETECTION',
+          tabId: currentTabId,
+          domInput: domInput
+        }, function (resp) {
+          resolve(resp || { headerHits: headerHits, domHits: [], merged: headerHits });
+        });
+      }),
+      new Promise(function (r) { setTimeout(function () { r({ headerHits: headerHits, domHits: [], merged: headerHits }); }, 4000); })
+    ]);
     var merged = detectionResult.merged || headerHits || [];
 
     // 阶段4：结构化规则匹配
@@ -1210,21 +1328,11 @@ async function init() {
     window.StiffEyesWebpackPanel.init(currentTabId);
   }
   if (!currentScan) {
-    renderScan({ scanning: true, blacklisted: false, counts: { total: 0 } });
+    renderScan({ blacklisted: false, counts: { total: 0 } });
   }
 
-  // Auto-trigger sniff on popup open
-  openSniff();
-
-  // JS 泄露扫描按钮
-  var jsleakQuick = $('jsleakQuickBtn');
-  var jsleakDeep = $('jsleakDeepBtn');
-  if (jsleakQuick && window.StiffEyesToolsPanel) {
-    jsleakQuick.addEventListener('click', function () { window.StiffEyesToolsPanel.scanJsleak(); });
-  }
-  if (jsleakDeep && window.StiffEyesToolsPanel) {
-    jsleakDeep.addEventListener('click', function () { window.StiffEyesToolsPanel.deepScanJsleak(); });
-  }
+  // 指纹识别改为按需加载（不再自动触发，避免加载 3.3MB 规则文件导致卡顿）
+  // openSniff() 仅在用户点击"指纹"tab 时调用
 }
 
 document.querySelectorAll('#mainTabs .tab').forEach((btn) => {
@@ -1469,9 +1577,28 @@ $('btnSpringCancel')?.addEventListener('click', async () => {
 // Spring 路径配置已并入总设置页（pages/settings.html）
 
 chrome.runtime.onMessage.addListener((msg) => {
+  // 内容脚本直接推送扫描结果（绕过 SW）
+  if (msg.type === 'SCAN_UPDATE' && msg.results) {
+    var matchesTab = msg.tabId === currentTabId;
+    if (!matchesTab && typeof msg.tabId === 'string' && msg.tabId.startsWith('host_')) {
+      try { matchesTab = msg.tabId === 'host_' + new URL(currentTabUrl).hostname; } catch (e) {}
+    }
+    if (matchesTab) {
+      var scanData = msg.results;
+      if (StiffEyesPatterns.normalizeScanResult) {
+        StiffEyesPatterns.normalizeScanResult(scanData);
+      }
+      renderScan(scanData);
+      return;
+    }
+  }
   if (msg.type === 'SCAN_READY' && msg.tabId === currentTabId) {
     renderScan(msg.scan);
     return;
+  }
+  // SCAN_READY 也可能来自 hostname-based key
+  if (msg.type === 'SCAN_READY' && typeof msg.tabId === 'string' && msg.tabId.startsWith('host_')) {
+    try { if (msg.tabId === 'host_' + new URL(currentTabUrl).hostname) { renderScan(msg.scan); return; } } catch (e) {}
   }
   if (msg.action === 'updateProgress' && isSpringForCurrentTab(msg)) {
     applySpringProgress({
@@ -1544,6 +1671,27 @@ chrome.runtime.onMessage.addListener((msg) => {
 
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area !== 'local' || !currentTabId) return;
+
+  // === 扫描数据变更（bl_scan_ 键）===
+  var scanKey = 'bl_scan_' + currentTabId;
+  var scanChange = changes[scanKey];
+  // 也检查 hostname-based fallback key
+  if (!scanChange) {
+    try {
+      var host = new URL(currentTabUrl).hostname;
+      scanChange = changes['bl_scan_host_' + host];
+    } catch (e) {}
+  }
+  if (scanChange && scanChange.newValue) {
+    var newScan = scanChange.newValue;
+    if (StiffEyesPatterns && StiffEyesPatterns.normalizeScanResult) {
+      StiffEyesPatterns.normalizeScanResult(newScan);
+    }
+    renderScan(newScan);
+    return;
+  }
+
+  // === Spring 扫描变更 ===
   const springChange = changes[springStorageKey(currentTabId)];
   if (springChange?.newValue) {
     const st = springChange.newValue;

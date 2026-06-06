@@ -517,16 +517,12 @@
   <script src="../lib/payloads.js"></script>
   <script src="../lib/webpack-scan-rules.js"></script>
   <script src="../lib/webpack-core.js"></script>
-  <script src="../lib/fingerprint-core.js"></script>
-  <script src="../lib/sniff-rules-core.js"></script>
-  <script src="../lib/sniff-rules-webtech.js"></script>
-  <script src="../lib/sniff-engine.js"></script>
-  <script src="../lib/sniff-signals.js"></script>
-  <script src="../lib/sniff-probes.js"></script>
+  <!-- 指纹脚本改为按需加载（openSniff() 触发时动态注入，避免 3.3MB 规则文件阻塞 popup 启动） -->
   <script src="../lib/jose.bundle.js"></script>
   <script src="../lib/jwt-core.js"></script>
   <script src="webpack-panel.js"></script>
   <script src="jwt-panel.js"></script>
+  <script src="jsleak-panel.js"></script>
   <script src="tools-panel.js"></script>
   <script src="popup.js"></script>
 </body>

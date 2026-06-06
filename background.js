@@ -3,7 +3,8 @@ importScripts(
   'lib/spring-paths.js',
   'lib/cloud-bucket-rules.js',
   'lib/cloud-bucket-vuln.js',
-  'lib/fingerprint-core.js'
+  'lib/fingerprint-core.js',
+  'lib/fingerprint-quick-config.js'
 );
 
 // ========== Tab State & Badge ==========
@@ -169,14 +170,19 @@ function updateBadge(results, tabId) {
     'emails', 'idcards', 'jwts', 'imageFiles', 'jsFiles', 'vueFiles', 'urls',
     'githubUrls', 'companies', 'credentials', 'cookies', 'idKeys', 'secrets'
   ];
+
   const count = fields.reduce((acc, field) => {
     const arr = results[field];
     return acc + (Array.isArray(arr) && arr.length > 0 ? 1 : 0);
   }, 0);
+
   setTabCount(tabId, count);
+
   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
     const activeTab = tabs?.[0];
-    if (activeTab?.id === tabId) setBadgeUI(tabId, count);
+    if (activeTab?.id === tabId) {
+      setBadgeUI(tabId, count);
+    }
   });
 }
 
@@ -191,7 +197,7 @@ chrome.webNavigation.onCommitted.addListener((details) => {
     tabCountsCache.delete(tabId);
     // Only clear scan data — sniff main/hits were just written by onHeadersReceived
     // (which fires BEFORE onCommitted), so don't wipe them
-    chrome.storage.session.remove([`tab_${tabId}`, `analysis_${tabId}`]);
+    chrome.storage.session.remove([`tab_${tabId}`]);
     if (tabJsMap[tabId]) tabJsMap[tabId].clear();
     // Reset observation resources/scripts but keep main & headerHits
     // (onHeadersReceived already set obs.main for the new navigation)
@@ -203,17 +209,36 @@ chrome.webNavigation.onCommitted.addListener((details) => {
   }
 });
 
-chrome.tabs.onRemoved.addListener((tabId) => {
+chrome.tabs.onRemoved.addListener(function (tabId) {
   tabCountsCache.delete(tabId);
-  chrome.storage.session.remove([`tab_${tabId}`, `analysis_${tabId}`, `stiffeyes_obs_main_${tabId}`, `stiffeyes_obs_hits_${tabId}`]);
+  chrome.storage.session.remove([`tab_${tabId}`, `stiffeyes_obs_main_${tabId}`, `stiffeyes_obs_hits_${tabId}`]);
   if (tabJsMap[tabId]) tabJsMap[tabId].clear();
   tabObservations.delete(tabId);
+  // 清理分析工具检测缓存
+  Object.values(analyticsDetectedMap).forEach(function (map) { map.delete(tabId); });
 });
 
-// ========== webRequest: JS tracking + Cloud bucket ==========
+// ========== webRequest: JS tracking + Cloud bucket + Analytics ==========
 chrome.webRequest.onBeforeRequest.addListener(
-  (details) => {
-    const { tabId, url, type } = details;
+  function (details) {
+    var tabId = details.tabId;
+    var url = details.url;
+
+    // === Analytics Detection - 统计分析工具URL检测 ===
+    if (tabId >= 0 && StiffEyesFingerprintConfig && StiffEyesFingerprintConfig.ANALYTICS) {
+      var analyticsPatterns = Object.entries(StiffEyesFingerprintConfig.ANALYTICS);
+      for (var ai = 0; ai < analyticsPatterns.length; ai++) {
+        var aType = analyticsPatterns[ai][0];
+        var aConfig = analyticsPatterns[ai][1];
+        try {
+          var aRegex = new RegExp(aConfig.pattern.replace(/[*]/g, '.*'));
+          if (url.match(aRegex)) {
+            handleAnalyticsDetection(details, aType);
+            break; // 只匹配第一个
+          }
+        } catch (e) { /* ignore invalid pattern */ }
+      }
+    }
 
     // === Cloud bucket URL detection (all request types) ===
     if (tabId >= 0) {
@@ -268,6 +293,25 @@ chrome.webRequest.onHeadersReceived.addListener(
         persistObj[persistKey] = obs.main;
         chrome.storage.session.set(persistObj).catch(function () {});
       } catch (e) {}
+
+      // Cookie 技术识别 - 通过 Set-Cookie 响应头识别后端技术栈
+      try {
+        var headerMap = new Map();
+        if (details.responseHeaders) {
+          for (var hi = 0; hi < details.responseHeaders.length; hi++) {
+            var hName = (details.responseHeaders[hi].name || '').toLowerCase();
+            if (hName === 'set-cookie') {
+              var cookieVal = details.responseHeaders[hi].value || '';
+              var techFromCookie = identifyTechnologyFromCookie(cookieVal);
+              if (techFromCookie && obs.main) {
+                if (!obs.main.cookieTech) obs.main.cookieTech = [];
+                obs.main.cookieTech.push(techFromCookie);
+              }
+            }
+          }
+        }
+      } catch (e) { /* cookie识别失败不影响主流程 */ }
+
       // 指纹检测改为按需触发（避免编译阻塞信息收集等核心消息）
       // Header 原始数据已存储到 obs.main，检测在 popup 请求 SNIFF_RUN_DETECTION 时执行
       // 使用 setTimeout(0) 将检测推迟到当前消息循环之后
@@ -319,15 +363,23 @@ chrome.webRequest.onHeadersReceived.addListener(
 
 // ========== JS Fetching (2-layer fallback) ==========
 async function tryFetchContent(url) {
-  const response = await fetch(url, {
-    headers: {
-      'Accept': '*/*',
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-    },
-    credentials: 'omit'
-  });
-  if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-  return await response.text();
+  var ctrl = new AbortController();
+  var timer = setTimeout(function () { ctrl.abort(); }, 10000); // 10秒超时，防止挂起
+  try {
+    var response = await fetch(url, {
+      signal: ctrl.signal,
+      headers: {
+        'Accept': '*/*',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+      },
+      credentials: 'omit'
+    });
+    clearTimeout(timer);
+    if (!response.ok) throw new Error('HTTP error! status: ' + response.status);
+    return await response.text();
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 async function fallbackFetchContentViaTab(tabId, url) {
@@ -551,6 +603,49 @@ chrome.runtime.onInstalled.addListener(function () {
 
 // SW 每次唤醒时重新应用策略
 initWebRtcPolicy();
+
+// ========== Cookie 技术识别 ==========
+function identifyTechnologyFromCookie(cookieHeader) {
+  if (!cookieHeader || !StiffEyesFingerprintConfig) return null;
+  var cookies = StiffEyesFingerprintConfig.COOKIES;
+  if (!cookies) return null;
+  for (var ci = 0; ci < cookies.length; ci++) {
+    var cookieRule = cookies[ci];
+    if (cookieRule.match && cookieRule.match.test(cookieHeader)) {
+      return {
+        type: cookieRule.type,
+        name: cookieRule.name,
+        description: cookieRule.description || ('通过cookie识别到网站使用' + cookieRule.name)
+      };
+    }
+  }
+  return null;
+}
+
+// ========== Analytics Detection State ==========
+var analyticsDetectedMap = { baidu: new Map(), yahoo: new Map(), google: new Map(), cnzz: new Map(), sensors: new Map(), growingio: new Map(), baiduTongji: new Map(), microsoft: new Map() };
+
+function handleAnalyticsDetection(details, type) {
+  if (!analyticsDetectedMap[type]) return;
+  var tabId = details.tabId;
+  if (analyticsDetectedMap[type].get(tabId)) return;
+
+  analyticsDetectedMap[type].set(tabId, true);
+  var config = StiffEyesFingerprintConfig.ANALYTICS[type];
+  if (!config) return;
+
+  // 记录检测到的分析工具（可用于后续展示）
+  var obs = getObservation(tabId);
+  if (obs && !obs.analytics) obs.analytics = [];
+  obs.analytics.push({
+    name: config.name,
+    description: config.description,
+    version: config.name,
+    detectedAt: Date.now(),
+    url: details.url
+  });
+  obs.updatedAt = Date.now();
+}
 
 // ========== Proxy Fetch ==========
 function proxyFetch(url, timeoutMs) {
@@ -807,15 +902,25 @@ chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
 
     // Scan results & session
     case 'SCAN_UPDATE': {
-      if (!tabId) { sendResponse({ ok: false, error: 'no_tab' }); return false; }
+      // 使用消息自带的 tabId（兼容数字和 host_ 前缀两种格式）
+      var scanTabId = msg.tabId;
+      if (!scanTabId && !tabId) { sendResponse({ ok: false, error: 'no_tab' }); return false; }
+      scanTabId = scanTabId || tabId;
       var scanData = msg.data || msg.results || {};
       if (typeof StiffEyesPatterns !== 'undefined' && StiffEyesPatterns.normalizeScanResult) {
         StiffEyesPatterns.normalizeScanResult(scanData);
       }
-      saveSession(tabId, 'scan', scanData).then(function () {
-        broadcastScanReady(tabId, scanData);
+      // 数字 tabId 用 session 存储，host_ 前缀的用 local 存储
+      if (typeof scanTabId === 'number') {
+        saveSession(scanTabId, 'scan', scanData).then(function () {
+          broadcastScanReady(scanTabId, scanData);
+          sendResponse({ ok: true });
+        });
+      } else {
+        // host_ 前缀：直接广播，local storage 由内容脚本自己写入
+        broadcastScanReady(scanTabId, scanData);
         sendResponse({ ok: true });
-      });
+      }
       return true;
     }
     case 'GET_SNIFF_DATA': {
@@ -901,6 +1006,20 @@ chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
     case 'PROXY_FETCH': {
       proxyFetch(msg.url, msg.timeout || 12000).then(function (out) { sendResponse(out); })
         .catch(function (e) { sendResponse({ ok: false, text: '', error: e.message }); });
+      return true;
+    }
+
+    // ========== Analytics & Cookie Tech ==========
+    case 'GET_ANALYTICS': {
+      var analyticsTabId = msg.tabId || tabId;
+      var aObs = getObservation(analyticsTabId);
+      sendResponse({ analytics: (aObs && aObs.analytics) || [] });
+      return true;
+    }
+    case 'GET_COOKIE_TECH': {
+      var cookieTabId = msg.tabId || tabId;
+      var cObs = getObservation(cookieTabId);
+      sendResponse({ cookieTech: ((cObs && cObs.main) && cObs.main.cookieTech) || [] });
       return true;
     }
 
@@ -992,6 +1111,8 @@ chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
       return false;
     }
 
+    case 'SNIFF_RUN_DETECTION': {
+      (async function () {
         try {
           var store = await _getFingerprintStore();
           var FP = self.StiffEyesFingerprint;
