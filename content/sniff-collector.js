@@ -27,7 +27,7 @@
           if (done) return;
           done = true;
           resolve({ faviconBase64: '', faviconUrl: faviconUrl });
-        }, 3000);
+        }, 1500);
 
         img.onload = function () {
           if (done) return;

@@ -17,7 +17,7 @@ function showToast(message) {
 
 function load() {
   chrome.storage.local.get(
-    ['directories', 'blacklist_domains', 'base_path', 'deepScan', 'skip_third_party_js', 'dynamicScan', 'webrtc_protection'],
+    ['directories', 'blacklist_domains', 'base_path', 'deepScan', 'skip_third_party_js', 'dynamicScan'],
     function (data) {
       $('directories').value = data.directories
         ? data.directories.join('\n')
@@ -27,7 +27,6 @@ function load() {
       $('deepScan').checked = data.deepScan !== false;
       $('skipThirdPartyJs').checked = data.skip_third_party_js !== false;
       $('dynamicScan').checked = data.dynamicScan === true;
-      $('webrtcProtection').checked = data.webrtc_protection !== false;
     }
   );
 }
@@ -68,7 +67,6 @@ function saveAll() {
     .split('\n')
     .map(function (s) { return s.trim(); })
     .filter(Boolean);
-  var webrtcEnabled = $('webrtcProtection').checked;
   var scanOpts = {
     deepScan: $('deepScan').checked,
     skipThirdPartyJs: $('skipThirdPartyJs').checked,
@@ -82,16 +80,10 @@ function saveAll() {
       base_path: $('basePath').value.trim(),
       deepScan: scanOpts.deepScan,
       skip_third_party_js: scanOpts.skipThirdPartyJs,
-      dynamicScan: scanOpts.dynamicScan,
-      webrtc_protection: webrtcEnabled
+      dynamicScan: scanOpts.dynamicScan
     },
     function () {
       notifyOpenTabsRescan(scanOpts);
-      // 通知后台应用 WebRTC 策略
-      chrome.runtime.sendMessage({
-        type: 'SET_WEBRTC_POLICY',
-        enabled: webrtcEnabled
-      }).catch(function () {});
       showToast('设置已保存，已触发已打开页面重新扫描');
     }
   );

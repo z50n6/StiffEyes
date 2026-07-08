@@ -224,6 +224,10 @@ chrome.webRequest.onBeforeRequest.addListener(
     var tabId = details.tabId;
     var url = details.url;
 
+    // 仅处理主框架、脚本和 XHR 请求（跳过图片/CSS/字体等静态资源）
+    var rt = details.type;
+    if (rt !== 'main_frame' && rt !== 'script' && rt !== 'xmlhttprequest' && rt !== 'sub_frame') return;
+
     // === Analytics Detection - 统计分析工具URL检测 ===
     if (tabId >= 0 && StiffEyesFingerprintConfig && StiffEyesFingerprintConfig.ANALYTICS) {
       var analyticsPatterns = Object.entries(StiffEyesFingerprintConfig.ANALYTICS);
@@ -248,7 +252,7 @@ chrome.webRequest.onBeforeRequest.addListener(
       }
     }
 
-    if (type !== 'script' || tabId < 0) return;
+    if (rt !== 'script' || tabId < 0) return;
     try {
       const initiator_url = new URL(details.initiator);
       const current_url = new URL(url);
@@ -257,7 +261,7 @@ chrome.webRequest.onBeforeRequest.addListener(
     if (!tabJsMap[tabId]) tabJsMap[tabId] = new Set();
     tabJsMap[tabId].add(url);
   },
-  { urls: ['<all_urls>'] },
+  { urls: ['<all_urls>'], types: ['main_frame', 'script', 'xmlhttprequest', 'sub_frame'] },
   []
 );
 
@@ -271,7 +275,7 @@ chrome.webRequest.onHeadersReceived.addListener(
       addCloudBucket(details.url, detected.vendor, detected.region, details.tabId, details.url, 'header');
     }
   },
-  { urls: ['<all_urls>'] },
+  { urls: ['<all_urls>'], types: ['main_frame', 'sub_frame', 'xmlhttprequest'] },
   ['responseHeaders']
 );
 
@@ -279,6 +283,8 @@ chrome.webRequest.onHeadersReceived.addListener(
 chrome.webRequest.onHeadersReceived.addListener(
   function (details) {
     if (details.tabId < 0) return;
+    // 跳过静态资源（图片/字体/CSS）减少内存开销
+    if (details.type === 'image' || details.type === 'font' || details.type === 'media' || details.type === 'stylesheet') return;
     var obs = getObservation(details.tabId);
     if (details.type === 'main_frame' && details.frameId === 0) {
       obs.main = {
@@ -472,7 +478,7 @@ function broadcastScanReady(tabId, scan) {
 
 // ========== Spring Scanning ==========
 var SPRING_FETCH_TIMEOUT_MS = 8000;
-var SPRING_FETCH_CONCURRENCY = 12;
+var SPRING_FETCH_CONCURRENCY = 6;
 var springJobs = new Map();
 
 function cancelSpringScan(tabId) {
@@ -569,22 +575,6 @@ function scanDirectories(tabId, tabUrl) {
   });
 }
 
-// ========== WebRTC 防护 ==========
-function applyWebRtcPolicy(enabled) {
-  try {
-    chrome.privacy.network.webRTCIPHandlingPolicy.set({
-      value: enabled ? 'disable_non_proxied_udp' : 'default'
-    });
-  } catch (e) { /* 隐私 API 不可用 */ }
-}
-
-function initWebRtcPolicy() {
-  chrome.storage.local.get(['webrtc_protection'], function (data) {
-    // 默认开启：webrtc_protection !== false
-    applyWebRtcPolicy(data.webrtc_protection !== false);
-  });
-}
-
 // ========== Install ==========
 chrome.runtime.onInstalled.addListener(function () {
   chrome.storage.local.get(['directories'], function (data) {
@@ -592,17 +582,7 @@ chrome.runtime.onInstalled.addListener(function () {
       chrome.storage.local.set({ directories: StiffEyesPaths.DEFAULT_SPRING_PATHS });
     }
   });
-  // 首次安装默认开启 WebRTC 防护
-  chrome.storage.local.get(['webrtc_protection'], function (data) {
-    if (data.webrtc_protection === undefined) {
-      chrome.storage.local.set({ webrtc_protection: true });
-    }
-    applyWebRtcPolicy(data.webrtc_protection !== false);
-  });
 });
-
-// SW 每次唤醒时重新应用策略
-initWebRtcPolicy();
 
 // ========== Cookie 技术识别 ==========
 function identifyTechnologyFromCookie(cookieHeader) {
@@ -1143,6 +1123,7 @@ chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
   }
   return false;
 });
+
 
 // ========== 右键菜单：编码切换 & UA 伪装 ==========
 

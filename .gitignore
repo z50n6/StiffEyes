@@ -35,3 +35,7 @@ venv/
 # Node (jose bundle build)
 node_modules/
 package-lock.json
+
+# Planning
+.planning/
+CLAUDE.md

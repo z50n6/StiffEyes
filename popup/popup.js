@@ -38,41 +38,53 @@ function renderList(el, items, emptyText = '暂无数据') {
     el.innerHTML = `<li class="empty">${emptyText}</li>`;
     return;
   }
+  // 使用 DocumentFragment + 事件委托，避免大量独立事件监听器
+  var frag = document.createDocumentFragment();
   items.forEach((item) => {
     const li = document.createElement('li');
     if (typeof item === 'string') {
       li.textContent = item;
       li.title = item;
+      li.dataset.copy = item;
     } else if (item.html) {
       li.innerHTML = item.html;
       li.className = item.className || '';
       li.title = item.title || '';
+      li.dataset.copy = item.title || '';
     } else {
       li.textContent = item.text || '';
       li.title = item.title || item.text || '';
-      // 显示来源信息
+      li.dataset.copy = item.text || item.title || '';
       if (item.source) {
         li.dataset.src = item.source;
         li.title = (item.text || '') + '\n来源: ' + item.source;
       }
     }
-    // 右键复制内容
-    li.addEventListener('contextmenu', function (e) {
+    frag.appendChild(li);
+  });
+  el.appendChild(frag);
+
+  // 事件委托：在父元素上统一处理（避免每条数据绑定独立监听器）
+  if (!el._delegated) {
+    el._delegated = true;
+    el.addEventListener('contextmenu', function (e) {
+      var li = e.target.closest('li');
+      if (!li || li.classList.contains('empty')) return;
       e.preventDefault();
-      var val = item.text || item.title || '';
+      var val = li.dataset.copy || li.textContent || '';
       if (val) navigator.clipboard.writeText(val).catch(function () {});
     });
-    // Ctrl+点击在新标签页打开来源
-    li.addEventListener('click', function (e) {
+    el.addEventListener('click', function (e) {
       if (e.ctrlKey || e.metaKey) {
+        var li = e.target.closest('li');
+        if (!li) return;
         var src = li.dataset.src;
         if (src && (src.startsWith('http://') || src.startsWith('https://'))) {
           chrome.tabs.create({ url: src, active: false });
         }
       }
     });
-    el.appendChild(li);
-  });
+  }
 }
 
 function snowEntryValue(entry) {
@@ -351,9 +363,10 @@ async function loadResults() {
   var currentHost = '';
   try { currentHost = new URL(currentTabUrl).hostname; } catch (e) {}
 
-  // ★ 主路径：直接从内容脚本读取内存数据（最快最可靠）
-  try {
-    var contentResult = await Promise.race([
+  // ★ 并行请求所有数据源（替代串行回退，最坏情况从 3.5s 降到 1.5s）
+  var results = await Promise.allSettled([
+    // 主路径：内容脚本内存数据（最快，带超时保护）
+    Promise.race([
       new Promise(function (resolve) {
         chrome.tabs.sendMessage(currentTabId, { type: 'GET_RESULTS', tabId: currentTabId, from: 'popup' }, function (resp) {
           if (chrome.runtime.lastError) { resolve(null); return; }
@@ -361,37 +374,38 @@ async function loadResults() {
         });
       }),
       new Promise(function (r) { setTimeout(function () { r(null); }, 1500); })
-    ]);
-    if (contentResult) {
-      scan = contentResult;
-    }
-  } catch (e) { /* 内容脚本未响应 */ }
-
-  // ★ 备用：从 chrome.storage.local 读取持久化数据
-  if (!scan) {
-    try {
+    ]),
+    // 备用1：chrome.storage.local
+    (async function () {
       var localKeys = [scanKey];
       if (currentHost) localKeys.push('bl_scan_host_' + currentHost);
-      var localData = await Promise.race([
-        chrome.storage.local.get(localKeys),
-        new Promise(function (r) { setTimeout(function () { r({}); }, 1000); })
-      ]);
-      for (var i = 0; i < localKeys.length; i++) {
-        if (localData[localKeys[i]]) { scan = localData[localKeys[i]]; break; }
-      }
-    } catch (e) {}
-  }
+      try {
+        var data = await chrome.storage.local.get(localKeys);
+        for (var i = 0; i < localKeys.length; i++) {
+          if (data[localKeys[i]]) return data[localKeys[i]];
+        }
+      } catch (e) {}
+      return null;
+    })(),
+    // 备用2：session storage
+    (async function () {
+      try {
+        var data = await chrome.storage.session.get([scanKey, springKey]);
+        return { scan: data[scanKey] || null, spring: data[springKey] || '' };
+      } catch (e) { return null; }
+    })()
+  ]);
 
-  // ★ 最后：session storage
-  if (!scan) {
-    try {
-      var sessionData = await Promise.race([
-        chrome.storage.session.get([scanKey, springKey]),
-        new Promise(function (r) { setTimeout(function () { r({}); }, 1000); })
-      ]);
-      scan = sessionData[scanKey] || null;
-      springResults = sessionData[springKey] || '';
-    } catch (e) {}
+  // 优先使用内容脚本结果，fallback 到 storage
+  if (results[0].status === 'fulfilled' && results[0].value) {
+    scan = results[0].value;
+  }
+  if (!scan && results[1].status === 'fulfilled' && results[1].value) {
+    scan = results[1].value;
+  }
+  if (!scan && results[2].status === 'fulfilled' && results[2].value && results[2].value.scan) {
+    scan = results[2].value.scan;
+    springResults = results[2].value.spring || '';
   }
 
   if (scan && StiffEyesPatterns.normalizeScanResult) {
@@ -806,8 +820,18 @@ function initPayloadPanel() {
     }
   });
 
+  var payloadSearchTimer = null;
+  var PAYLOAD_SEARCH_DEBOUNCE = 300; // 300ms 防抖
+
   $('payloadSearch').addEventListener('input', function () {
     var q = this.value;
+    clearTimeout(payloadSearchTimer);
+    payloadSearchTimer = setTimeout(function () {
+      performPayloadSearch(q);
+    }, PAYLOAD_SEARCH_DEBOUNCE);
+  });
+
+  function performPayloadSearch(q) {
     if (!q.trim()) {
       selectPayloadCat(activePayloadCatId);
       return;
@@ -845,7 +869,7 @@ function initPayloadPanel() {
       });
       el.appendChild(li);
     });
-  });
+  }
 }
 
 // ========== Sniff / Fingerprint Engine ==========
@@ -890,7 +914,8 @@ function ensureCompiledStore() {
     } catch (e) { /* 读取失败，走编译路径 */ }
 
     // 后备：自行编译（仅后台未预热时触发，极少发生）
-    setSniffStatus('●', '正在编译规则库…', 'busy');
+    setSniffStatus('●', '正在编译规则库（可能需要几秒）…', 'busy');
+    var compileStart = performance.now();
     var files = ['finger.json', 'kscan_fingerprint.json', 'webapp.json', 'apps.json'];
     var base = 'lib/rules/';
     var payloadMap = {};
@@ -905,7 +930,11 @@ function ensureCompiledStore() {
       }
     }));
 
+    // 使用 setTimeout 让出事件循环，避免编译阻塞 UI 提示更新
+    await new Promise(function (resolve) { setTimeout(resolve, 0); });
     sniffState.compiledStore = FP.utils.buildUnifiedCompiledFingerprintStore(payloadMap);
+    var compileElapsed = ((performance.now() - compileStart) / 1000).toFixed(1);
+    console.log('Fingerprint store compiled in ' + compileElapsed + 's');
     setSniffStatus('●', '正在分析技术栈…', 'busy');
     return sniffState.compiledStore;
   })();
@@ -1154,23 +1183,27 @@ function exportSniffResults() {
 var _sniffScriptsLoaded = false;
 function loadSniffScripts() {
   if (_sniffScriptsLoaded) return Promise.resolve();
+  // sniff-rules-webtech.js (3.3MB/158k行) 已移除 — 核心规则 sniff-rules-core.js 覆盖主流技术栈
+  // 完整指纹检测由 background.js 的预编译库 + Header 检测提供
   var files = [
     'lib/fingerprint-core.js',
     'lib/sniff-rules-core.js',
-    'lib/sniff-rules-webtech.js',
     'lib/sniff-engine.js',
     'lib/sniff-signals.js',
     'lib/sniff-probes.js'
   ];
-  return Promise.all(files.map(function (src) {
-    return new Promise(function (resolve, reject) {
-      var s = document.createElement('script');
-      s.src = '../' + src;
-      s.onload = resolve;
-      s.onerror = reject;
-      document.head.appendChild(s);
+  // 逐个加载，每个之间让出事件循环以避免阻塞 UI
+  return files.reduce(function (chain, src) {
+    return chain.then(function () {
+      return new Promise(function (resolve, reject) {
+        var s = document.createElement('script');
+        s.src = '../' + src;
+        s.onload = function () { setTimeout(resolve, 0); };
+        s.onerror = reject;
+        document.head.appendChild(s);
+      });
     });
-  })).then(function () {
+  }, Promise.resolve()).then(function () {
     _sniffScriptsLoaded = true;
   });
 }
@@ -1671,6 +1704,18 @@ chrome.runtime.onMessage.addListener((msg) => {
 
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area !== 'local' || !currentTabId) return;
+
+  // 快速过滤：只处理 bl_scan_ 或 springScan_ 开头的键
+  var hasRelevantKey = false;
+  var changedKeys = Object.keys(changes);
+  for (var ki = 0; ki < changedKeys.length; ki++) {
+    var k = changedKeys[ki];
+    if (k.indexOf('bl_scan_') === 0 || k.indexOf('springScan_') === 0) {
+      hasRelevantKey = true;
+      break;
+    }
+  }
+  if (!hasRelevantKey) return;
 
   // === 扫描数据变更（bl_scan_ 键）===
   var scanKey = 'bl_scan_' + currentTabId;

@@ -1,3 +1,4 @@
+/* ── 暗色主题（默认）── */
 .spring-page {
   font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
   max-width: 960px;
@@ -196,4 +197,128 @@
 
 .spring-toast-hide {
   opacity: 0;
+}
+
+/* ── 浅色主题 ── */
+@media (prefers-color-scheme: light) {
+  .spring-page {
+    color: #18181b;
+    background: #f5f5f5;
+  }
+
+  .spring-page-header {
+    border-bottom-color: rgba(13, 148, 136, 0.2);
+  }
+
+  .spring-page-header h1 {
+    color: #18181b;
+  }
+
+  .spring-page-hint {
+    color: #52525b;
+  }
+
+  .spring-label {
+    color: #18181b;
+  }
+
+  .spring-textarea {
+    border-color: #d4d4d8;
+    background: #ffffff;
+    color: #18181b;
+  }
+
+  .spring-textarea:focus {
+    border-color: #0d9488;
+    box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.15);
+  }
+
+  .spring-input {
+    border-color: #d4d4d8;
+    background: #ffffff;
+    color: #18181b;
+  }
+
+  .spring-input:focus {
+    border-color: #0d9488;
+    box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.15);
+  }
+
+  .spring-check {
+    color: #52525b;
+  }
+
+  .spring-check input {
+    accent-color: #0d9488;
+  }
+
+  .spring-btn {
+    border-color: #d4d4d8;
+    background: #ffffff;
+    color: #18181b;
+  }
+
+  .spring-btn:hover {
+    background: #f0f0f1;
+    border-color: #a1a1aa;
+  }
+
+  .spring-btn-primary {
+    background: linear-gradient(135deg, #0d9488, #14b8a6);
+    border: none;
+    color: #f0fdfa;
+    box-shadow: 0 2px 8px rgba(13, 148, 136, 0.25);
+  }
+
+  .spring-btn-primary:hover {
+    filter: brightness(1.1);
+    box-shadow: 0 4px 12px rgba(13, 148, 136, 0.4);
+  }
+
+  .spring-result-item {
+    border-bottom-color: #d4d4d8;
+    color: #18181b;
+  }
+
+  .spring-result-item a {
+    color: #0d9488;
+  }
+
+  .status-2xx {
+    background: rgba(34, 197, 94, 0.1);
+    color: #16a34a;
+    border-color: rgba(34, 197, 94, 0.3);
+  }
+
+  .status-3xx {
+    background: rgba(13, 148, 136, 0.1);
+    color: #0f766e;
+    border-color: rgba(13, 148, 136, 0.3);
+  }
+
+  .status-4xx {
+    background: rgba(245, 158, 11, 0.1);
+    color: #b45309;
+    border-color: rgba(245, 158, 11, 0.3);
+  }
+
+  .status-5xx,
+  .status-error {
+    background: rgba(239, 68, 68, 0.1);
+    color: #dc2626;
+    border-color: rgba(239, 68, 68, 0.3);
+  }
+
+  .status-other {
+    background: #f0f0f1;
+    color: #52525b;
+    border-color: #d4d4d8;
+  }
+
+  .spring-toast {
+    background: #ffffff;
+    color: #18181b;
+    border-color: #d4d4d8;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  }
 }
