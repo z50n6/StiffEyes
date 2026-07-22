@@ -4,7 +4,7 @@
 <h1 align="center">绷着脸 · StiffEyes</h1>
 <p align="center"><strong>不苟言笑，认真看站</strong></p>
 <p align="center">
-  Chrome 扩展 — 页面资产梳理 · 技术指纹识别 · Spring 端点探测 · Webpack 映射 · 云存储检测 · JWT 测试 · Payload 字典 · 工具箱<br/>
+  Chrome 扩展 — 页面资产梳理 · 技术指纹识别 · Spring 端点探测 · Webpack 映射 · 云存储检测 · Payload 字典 · 工具箱<br/>
   <strong>⚠️ 使用声明：本工具仅供已获合法授权的安全测试、渗透测试与开发自检使用。<br/>使用者须确保在拥有明确书面授权的系统上操作，任何未经授权的测试行为均与本项目无关，后果由使用者自行承担。</strong>
 </p>
 
@@ -14,9 +14,9 @@
 
 ### 信息收集
 
-打开页面自动采集，覆盖 20+ 类别：
+打开页面自动采集，覆盖 20+ 类别，紧凑 chip 侧栏一屏尽览：
 
-`域名` `API 绝对路径` `API 相对路径` `模块路径` `文档` `账密` `Cookie` `密钥` `手机号` `邮箱` `身份证` `IP` `公司名` `JWT` `图片` `GitHub` `Vue/JS` `URL` `AJAX 路由` `输入框`
+`域名` `API绝对路径` `API相对路径` `模块路径` `文档` `账密` `Cookie` `ID密钥` `云Key` `手机号` `邮箱` `身份证` `IP` `公司` `JWT` `音图` `GitHub` `Vue` `JS` `URL` `JS泄露`
 
 深度模式自动拉取外链 JS，递归提取接口与路径。支持**域名黑名单**、**三方 JS 过滤**、**动态重扫**，扫描结果一键复制 / 复制 URL。
 
@@ -69,30 +69,15 @@
 
 支持**按分类/子分类筛选**、**关键词搜索**、**编码变换**（URL/Base64/Hex/Unicode/大小写混淆等 12 种），一键复制 payload。
 
-### JWT 测试
-
-在扩展内完成 JWT 安全测试（无需打开外部页面）：
-
-| 能力             | 说明                                                                            |
-| -------------- | ----------------------------------------------------------------------------- |
-| 编解码            | S-JWT 解码为 Header / Payload / 签名；编辑后生成 T-JWT                                   |
-| 算法             | HS256–HS512、RS/ES/PS 系列共 12 种；HMAC 支持密钥重签                                     |
-| None / No Sign | `alg:none` 与空签名变体                                                             |
-| Brute          | 内置 HMAC 密钥字典暴力破解                                                              |
-| JWK / JKU 注入   | 嵌入 JWK 或引用 JKU（含 PortSwigger 靶场预设密钥对）                                         |
-| KID Path       | `kid` 路径穿越 + `/dev/null` 空密钥签名（HMAC）                                          |
-
 ###  工具箱
-
-工具面板包含以下渗透测试辅助工具：
 
 | 工具 | 功能 |
 |------|------|
-| 🎭 **UA 头伪装** | 内置 68+ 浏览器 UA 预设（Chrome/Firefox/Safari/Edge/Opera/Brave/Vivaldi/IE/WeChat/华为/爬虫），支持浏览器+平台双维度筛选、自定义 UA、一键测试。通过 DNR 规则全局修改请求头，**右键菜单**快捷切换 |
-| 🍪 **Cookie 管理器** | 查看、编辑、新建、删除当前站点 Cookie。支持完整属性编辑（SameSite/Secure/HttpOnly/过期时间），一键全部删除 |
-| 🧹 **清除数据** | 一键清除 10 种浏览数据（Cookie/缓存/历史/下载/表单/LocalStorage/IndexedDB/ServiceWorkers/密码/Cache Storage），支持全局/当前站点两种范围，5 档时间范围，清除后可选择自动重载页面 |
-| 🔤 **编码切换** | 自动检测当前页面字符编码，支持 24 种编码实时切换。通过 DNR 会话规则修改 Content-Type 响应头，覆盖主文档/子框架/脚本/样式表四种资源类型。**右键菜单**快捷切换 |
-| 📋 **批量网址** | 批量打开多个 URL（每行一个，自动去重、后台打开并分组）；提取当前窗口所有标签页 URL，支持复制到剪贴板或导出为 TXT 文件。集成自 [Open-Save-Multiple-URLs](https://github.com/z50n6/Open-Save-Multiple-URLs) |
+| 🎭 **UA 头伪装** | 内置 68+ 浏览器 UA 预设，浏览器+平台双维度筛选，支持自定义 UA。DNR 规则全局生效，右键菜单快捷切换 |
+| 🍪 **Cookie 管理器** | 查看、搜索、编辑、新建、删除当前站点 Cookie。完整属性编辑，JSON 导入导出 |
+| 🧹 **清除数据** | 一键清除 10 种浏览数据，支持当前站点/全局范围，5 档时间范围，清除后可选自动重载 |
+| 🔤 **编码切换** | 自动检测页面编码，24 种编码实时切换。DNR 规则覆盖主文档/子框架/脚本/样式表，右键菜单切换 |
+| 📋 **批量网址** | 批量打开 URL（自动去重后台分组）；提取标签页列表，复制或导出 TXT |
 
 ---
 
@@ -108,7 +93,7 @@ git clone https://github.com/z50n6/stiffeyes.git
 2. 开启 **开发者模式**
 3. 点击 **加载已解压的扩展程序** → 选择项目目录
 
-无需编译，开箱即用。若需重新打包 `jose`：`npm install` 后执行 `npm run build:jose`。
+无需编译，开箱即用。
 
 ---
 
@@ -117,36 +102,37 @@ git clone https://github.com/z50n6/stiffeyes.git
 ```
 StiffEyes/
 ├── manifest.json               # 扩展清单（MV3）
-├── background.js               # Service Worker（DNR 规则、右键菜单、批量标签页）
+├── background.js               # Service Worker
 ├── lib/
 │   ├── scan-config.js          # 扫描规则配置
 │   ├── scan-filter.js          # 匹配过滤器
 │   ├── scan-engine.js          # 内容脚本扫描引擎
-│   ├── patterns.js             # 侧栏分类与统计
+│   ├── patterns.js             # 分类定义与统计
 │   ├── logger.js               # 调试日志
 │   ├── fingerprint-core.js     # 技术指纹检测
 │   ├── fingerprint-rules.js    # 指纹规则库
+│   ├── sniff-rules-core.js     # 嗅探规则核心
+│   ├── sniff-rules-webtech.js  # Web 技术指纹数据库
+│   ├── sniff-engine.js         # HTTP 响应头嗅探引擎
+│   ├── sniff-signals.js        # 指纹信号处理
+│   ├── sniff-probes.js         # 主动探测规则
 │   ├── spring-paths.js         # Spring 端点字典
-│   ├── cloud-bucket-rules.js   # 云存储被动发现规则
-│   ├── cloud-bucket-vuln.js    # 云存储主动漏洞扫描
+│   ├── cloud-bucket-rules.js   # 云存储被动发现
+│   ├── cloud-bucket-vuln.js    # 云存储漏洞扫描
 │   ├── webpack-core.js         # Webpack 核心逻辑
 │   ├── webpack-scan-rules.js   # Webpack 匹配规则
-│   ├── hackbar-payloads.js     # HackBar UA 预设
 │   ├── payloads.js             # Payload 字典
-│   ├── jose.bundle.js          # jose 浏览器打包（JWT 签名/验证）
-│   ├── jwt-core.js             # JWT 编解码与攻击链
-│   └── jwt.secrets.list        # HMAC 破解字典
+│   └── hackbar-payloads.js     # HackBar UA 预设
 ├── content/
 │   ├── webpack-collector.js    # Webpack 源映射提取
 │   └── sniff-collector.js      # 技术栈嗅探采集
 ├── popup/
 │   ├── popup.html              # 主弹窗界面
 │   ├── popup.css               # 样式表
-│   ├── popup.js                # 主控制器（标签切换、扫描、设置）
-│   ├── tools-panel.js          # 工具面板（UA/Cookie/清除/编码/批量网址）
-│   ├── hackbar-panel.js        # HackBar 请求重放
-│   ├── webpack-panel.js        # Webpack UI
-│   └── jwt-panel.js            # JWT UI
+│   ├── popup.js                # 主控制器
+│   ├── tools-panel.js          # 工具箱
+│   ├── webpack-panel.js        # Webpack 面板
+│   └── jsleak-panel.js         # JS 泄露扫描
 ├── pages/
 │   ├── settings.html           # 设置页面
 │   └── spring-results.html     # Spring 结果页
