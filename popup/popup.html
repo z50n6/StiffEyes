@@ -30,8 +30,7 @@
     <button type="button" class="tab" data-panel="panel-webpack" role="tab">Webpack</button>
     <button type="button" class="tab" data-panel="panel-cloud" role="tab">云存储</button>
     <button type="button" class="tab" data-panel="panel-payload" role="tab">Payload</button>
-    <button type="button" class="tab" data-panel="panel-jwt" role="tab">JWT</button>
-	    <button type="button" class="tab" data-panel="panel-tools" role="tab">工具</button>
+    <button type="button" class="tab" data-panel="panel-tools" role="tab">工具</button>
   </nav>
 
   <main>
@@ -217,80 +216,6 @@
       </div>
     </section>
 
-    <section id="panel-jwt" class="panel">
-      <div class="jwt-body">
-        <!-- 紧凑头部：标题 + 密钥 + 算法 + 描述 -->
-        <div class="jwt-head">
-          <button type="button" class="jwt-title-btn" id="jwtTitleBtn" title="左键解码 · 中键清空">JWT</button>
-          <input type="text" class="jwt-input-inline" id="jwtSecret" placeholder="HMAC 密钥" autocomplete="off" spellcheck="false" />
-          <select class="jwt-input-inline jwt-alg-select" id="jwtAlgSelect" title="签名算法">
-            <option value="HS256">HS256</option>
-            <option value="HS384">HS384</option>
-            <option value="HS512">HS512</option>
-            <option value="RS256">RS256</option>
-            <option value="RS384">RS384</option>
-            <option value="RS512">RS512</option>
-            <option value="ES256">ES256</option>
-            <option value="ES384">ES384</option>
-            <option value="ES512">ES512</option>
-            <option value="PS256">PS256</option>
-            <option value="PS384">PS384</option>
-            <option value="PS512">PS512</option>
-          </select>
-          <button type="button" class="jwt-btn-xs jwt-btn-genkey hidden" id="jwtBtnGenKey" title="生成新的非对称密钥对">+密钥对</button>
-          <span class="jwt-alg-desc" id="jwtAlgDesc" title="算法说明"></span>
-        </div>
-        <span class="jwt-key-info hidden" id="jwtKeyInfo"></span>
-
-        <!-- S-JWT -->
-        <div class="jwt-row">
-          <span class="jwt-label">S-JWT</span>
-          <button type="button" class="jwt-btn-xs" id="jwtBtnSample">示例</button>
-        </div>
-        <textarea class="jwt-textarea" id="jwtSource" rows="2" spellcheck="false" placeholder="粘贴 JWT…"></textarea>
-
-        <!-- 三列：Header | Payload | Signature -->
-        <div class="jwt-cols">
-          <div class="jwt-col">
-            <span class="jwt-label jwt-dot-hdr">Header</span>
-            <textarea class="jwt-col-ta" id="jwtHeader" spellcheck="false"></textarea>
-          </div>
-          <div class="jwt-col">
-            <span class="jwt-label jwt-dot-pay">Payload</span>
-            <textarea class="jwt-col-ta" id="jwtPayload" spellcheck="false"></textarea>
-          </div>
-          <div class="jwt-col">
-            <span class="jwt-label jwt-dot-sig">Signature</span>
-            <textarea class="jwt-col-ta" id="jwtSignature" spellcheck="false" readonly></textarea>
-          </div>
-        </div>
-
-        <!-- T-JWT -->
-        <div class="jwt-row">
-          <span class="jwt-label">T-JWT</span>
-          <button type="button" class="jwt-btn-xs jwt-btn-primary" id="jwtBtnCopy">复制</button>
-        </div>
-        <textarea class="jwt-textarea" id="jwtTarget" rows="2" spellcheck="false" placeholder="编码 / 签名结果…"></textarea>
-
-        <!-- 攻击按钮行 -->
-        <div class="jwt-attacks">
-          <button type="button" class="jwt-btn jwt-btn-attack" id="jwtBtnNone" title="算法降级：将 alg 改为 none，生成无签名令牌">alg:none</button>
-          <button type="button" class="jwt-btn jwt-btn-attack" id="jwtBtnNoSign" title="移除签名：清空签名段，末尾追加空签名">No Sig</button>
-          <button type="button" class="jwt-btn jwt-btn-attack" id="jwtBtnBrute" title="字典爆破：使用 wallarm/jwt-secrets 字典破解 HS 密钥">Brute</button>
-          <button type="button" class="jwt-btn jwt-btn-attack" id="jwtBtnJwk" title="JWK 注入：在 Header 中嵌入自签公钥 (CVE-2018-0114)">JWK</button>
-          <button type="button" class="jwt-btn jwt-btn-attack" id="jwtBtnJku" title="JKU 注入：Header 中指定远程 JWK 地址，需目标可访问">JKU</button>
-          <button type="button" class="jwt-btn jwt-btn-attack" id="jwtBtnKid" title="KID 路径遍历：kid 指向 /dev/null 配合 AA== 密钥签名">KID</button>
-        </div>
-        <p class="jwt-status-bar hidden" id="jwtStatus" role="status"></p>
-        <p class="jwt-jku-hint hidden" id="jwtJkuHint"></p>
-        <p class="jwt-notice">
-          KID 路径可触发 RCE/文件读/SQL注入 ·
-          <a href="https://github.com/wallarm/jwt-secrets" target="_blank" rel="noopener">字典</a>
-        </p>
-      </div>
-    </section>
-
-    <!-- ====== 工具面板 ====== -->
     <section id="panel-tools" class="panel">
       <div class="tools-body">
         <!-- 悬浮下拉菜单（定位在Tab下方） -->
@@ -430,7 +355,6 @@
             <label class="tools-cleardata-check tools-cleardata-check-all"><input type="checkbox" id="clearDataSelectAll" /> 全选 <span class="tools-cleardata-hint">— 选择要清除的数据类型和范围，清除后无法撤销</span></label>
             <label class="tools-cleardata-check"><input type="checkbox" value="cookies" checked /> Cookie</label>
             <label class="tools-cleardata-check"><input type="checkbox" value="cache" checked /> 缓存</label>
-            <label class="tools-cleardata-check"><input type="checkbox" value="cache" checked /> 缓存</label>
             <label class="tools-cleardata-check"><input type="checkbox" value="history" /> 历史记录</label>
             <label class="tools-cleardata-check"><input type="checkbox" value="downloads" /> 下载记录</label>
             <label class="tools-cleardata-check"><input type="checkbox" value="formData" /> 表单数据</label>
@@ -518,10 +442,7 @@
   <script src="../lib/webpack-scan-rules.js"></script>
   <script src="../lib/webpack-core.js"></script>
   <!-- 指纹脚本改为按需加载（openSniff() 触发时动态注入，避免 3.3MB 规则文件阻塞 popup 启动） -->
-  <script src="../lib/jose.bundle.js"></script>
-  <script src="../lib/jwt-core.js"></script>
   <script src="webpack-panel.js"></script>
-  <script src="jwt-panel.js"></script>
   <script src="jsleak-panel.js"></script>
   <script src="tools-panel.js"></script>
   <script src="popup.js"></script>

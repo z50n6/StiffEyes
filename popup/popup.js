@@ -168,30 +168,28 @@ function buildScanUi() {
   var panelsEl = $('scanPanels');
   if (!subtabsEl || !panelsEl) return;
 
-  // ── 扫描 Tab ──
-  SCAN_TABS.forEach(function (tab, index) {
+  SCAN_TABS.forEach(function (tab) {
+    // ── 紧凑 chip 按钮 ──
     var btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'subtab';
     btn.dataset.sub = tab.id;
     btn.innerHTML =
-      '<span class="subtab-label">' +
-      tab.label +
-      '</span><span class="count" data-count-for="' +
-      tab.id +
-      '">0</span>';
+      '<span class="subtab-label">' + tab.label +
+      '</span><span class="count" data-count-for="' + tab.id + '">0</span>';
     btn.addEventListener('click', function () {
       document.querySelectorAll('#scanSubtabs .subtab').forEach(function (b) { b.classList.remove('active'); });
       document.querySelectorAll('#scanPanels .list-wrap').forEach(function (w) { w.classList.add('hidden'); });
       btn.classList.add('active');
       activeScanTabId = tab.id;
-      $(`panel-${tab.id}`).classList.remove('hidden');
+      $('panel-' + tab.id).classList.remove('hidden');
     });
     subtabsEl.appendChild(btn);
 
+    // ── 结果面板 ──
     var wrap = document.createElement('div');
     wrap.className = 'list-wrap hidden';
-    wrap.id = `panel-${tab.id}`;
+    wrap.id = 'panel-' + tab.id;
 
     // JS 泄露特殊面板
     if (tab.kind === 'jsleak') {
@@ -205,40 +203,33 @@ function buildScanUi() {
       var toolbar = document.createElement('div');
       toolbar.className = 'toolbar';
       toolbar.style.cssText = 'display:flex;gap:6px;padding:6px 0;';
-
       var quickBtn = document.createElement('button');
       quickBtn.type = 'button';
       quickBtn.className = 'btn btn-accent btn-sm';
       quickBtn.id = 'jsleakQuickBtn';
       quickBtn.textContent = '🧪 页面检测';
       quickBtn.addEventListener('click', function () { window.StiffEyesJsleakPanel && window.StiffEyesJsleakPanel.scanJsleak(); });
-
       var deepBtn = document.createElement('button');
       deepBtn.type = 'button';
       deepBtn.className = 'btn btn-sm';
       deepBtn.id = 'jsleakDeepBtn';
       deepBtn.textContent = '🔬 深层检测';
       deepBtn.addEventListener('click', function () { window.StiffEyesJsleakPanel && window.StiffEyesJsleakPanel.deepScanJsleak(); });
-
       var summarySpan = document.createElement('span');
       summarySpan.id = 'jsleakSummary';
       summarySpan.className = 'tools-jsleak-summary';
       summarySpan.style.cssText = 'font-size:10px;color:var(--text-faint);margin-left:8px;';
-
       toolbar.appendChild(quickBtn);
       toolbar.appendChild(deepBtn);
       toolbar.appendChild(summarySpan);
       wrap.appendChild(toolbar);
-
       var listDiv = document.createElement('div');
       listDiv.className = 'tools-jsleak-list';
       listDiv.id = 'jsleakList';
       listDiv.style.cssText = 'flex:1;min-height:200px;overflow-y:auto;';
       listDiv.innerHTML = '<div class="tools-empty">点击「页面检测」扫描当前页面，或「深层检测」拉取外部 JS 分析</div>';
       wrap.appendChild(listDiv);
-
       panelsEl.appendChild(wrap);
-      // 初始化 JS 泄露面板（加载缓存结果）
       if (window.StiffEyesJsleakPanel) window.StiffEyesJsleakPanel.init();
       return;
     }
@@ -246,11 +237,8 @@ function buildScanUi() {
     var head = document.createElement('div');
     head.className = 'panel-head';
     head.innerHTML =
-      '<h3 class="panel-title">' +
-      tab.label +
-      '</h3><span class="panel-meta" data-meta-for="' +
-      tab.id +
-      '">0 条</span>';
+      '<h3 class="panel-title">' + tab.label +
+      '</h3><span class="panel-meta" data-meta-for="' + tab.id + '">0 条</span>';
     wrap.appendChild(head);
 
     if (tab.copy) {
@@ -279,12 +267,12 @@ function buildScanUi() {
 
     var ul = document.createElement('ul');
     ul.className = 'list';
-    ul.id = `list-${tab.id}`;
+    ul.id = 'list-' + tab.id;
     wrap.appendChild(ul);
     panelsEl.appendChild(wrap);
   });
 
-  // 激活第二个子标签（域名），跳过第一个 JS 泄露
+  // 激活第一个分类（域名，跳过 JS泄露）
   var subtabs = subtabsEl.querySelectorAll('.subtab');
   var panels = panelsEl.querySelectorAll('.list-wrap');
   if (subtabs[1]) {
@@ -1389,9 +1377,6 @@ document.querySelectorAll('#mainTabs .tab').forEach((btn) => {
     }
     if (btn.dataset.panel === 'panel-payload') {
       initPayloadPanel();
-    }
-    if (btn.dataset.panel === 'panel-jwt' && window.StiffEyesJwtPanel) {
-      window.StiffEyesJwtPanel.init();
     }
     if (btn.dataset.panel === 'panel-tools' && window.StiffEyesToolsPanel) {
       // 再次点击已激活的工具 Tab → 返回下拉菜单
